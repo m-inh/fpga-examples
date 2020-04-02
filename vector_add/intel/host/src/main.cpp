@@ -24,13 +24,13 @@ scoped_array<cl_mem> output_buf;  // num_devices elements
 // Problem data.
 unsigned N = 1000000; // problem size
 #if USE_SVM_API == 0
-scoped_array<scoped_aligned_ptr<float>> input_a, input_b; // num_devices elements
-scoped_array<scoped_aligned_ptr<float>> output;           // num_devices elements
+scoped_array<scoped_aligned_ptr<float> > input_a, input_b; // num_devices elements
+scoped_array<scoped_aligned_ptr<float> > output;           // num_devices elements
 #else
-scoped_array<scoped_SVM_aligned_ptr<float>> input_a, input_b; // num_devices elements
-scoped_array<scoped_SVM_aligned_ptr<float>> output;           // num_devices elements
+scoped_array<scoped_SVM_aligned_ptr<float> > input_a, input_b; // num_devices elements
+scoped_array<scoped_SVM_aligned_ptr<float> > output;           // num_devices elements
 #endif                                        /* USE_SVM_API == 0 */
-scoped_array<scoped_array<float>> ref_output; // num_devices elements
+scoped_array<scoped_array<float> > ref_output; // num_devices elements
 scoped_array<unsigned> n_per_device;          // num_devices elements
 
 // Function prototypes

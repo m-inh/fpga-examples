@@ -12,7 +12,7 @@ The top-level OpenCL kernel file is device/vector_add.cl.
 
 To compile the OpenCL kernel, run:
 ```
-aoc device/vector_add.cl -o bin/vector_add.aocx --board <board>
+aoc device/vector_add.cl -o bin/vector_add.aocx --board=<board>
 ```
 where <board> matches the board you want to target. The -o bin/vector_add.aocx argument is used to place the compiled binary in the location that the host program expects.
 
@@ -24,7 +24,7 @@ aoc --list-boards
 Compiling for Emulator
 To use the emulation flow, the compilation command just needs to be modified slightly:
 ```
-aoc -march=emulator device/vector_add.cl -o bin/vector_add.aocx --board <board>
+aoc -march=emulator device/vector_add.cl -o bin/vector_add.aocx
 ```
 
 ## Compiling the Host Program
@@ -50,7 +50,7 @@ Prior to running the emulation flow, ensure that you have compiled the kernel fo
 
 For this example design, the suggested emulation command is:
 ```
-CL_CONTEXT_EMULATOR_DEVICE_ALTERA=1 bin/host -n=10000
+CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 bin/host -n=10000
 ```
 
 Host Parameters
