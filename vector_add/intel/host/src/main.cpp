@@ -292,26 +292,26 @@ void run()
 // Free the resources allocated during initialization
 void cleanup()
 {
-	if (kernel)
-	{
-	    clReleaseKernel(kernel);
-	}
-	if (queue && queue[i])
-	{
-	    clReleaseCommandQueue(queue[i]);
-	}
-	if (input_a_buf && input_a_buf[i])
-	{
-	    clReleaseMemObject(input_a_buf[i]);
-	}
-	if (input_b_buf && input_b_buf[i])
-	{
-	    clReleaseMemObject(input_b_buf[i]);
-	}
-	if (output_buf && output_buf[i])
-	{
-	    clReleaseMemObject(output_buf[i]);
-	}
+    if (kernel)
+    {
+        clReleaseKernel(kernel);
+    }
+    if (queue)
+    {
+        clReleaseCommandQueue(queue);
+    }
+    if (input_a_buf)
+    {
+        clReleaseMemObject(input_a_buf);
+    }
+    if (input_b_buf)
+    {
+        clReleaseMemObject(input_b_buf);
+    }
+    if (output_buf)
+    {
+        clReleaseMemObject(output_buf);
+    }
 
     if (program)
     {
