@@ -229,7 +229,7 @@ void run()
     }
 
     // Wait for all devices to finish.
-    clWaitForEvents(1, finish_event);
+    clWaitForEvents(1, &finish_event);
 
     const double end_time = getCurrentTimestamp();
 
