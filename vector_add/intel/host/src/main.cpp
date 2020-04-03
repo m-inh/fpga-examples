@@ -22,9 +22,9 @@ cl_mem output_buf;
 
 // Problem data.
 unsigned N = 1000000; // problem size
-scoped_array<scoped_aligned_ptr<float> > input_a, input_b; // num_devices elements
-scoped_array<scoped_aligned_ptr<float> > output;           // num_devices elements
-scoped_array<scoped_array<float> > ref_output; // num_devices elements
+scoped_aligned_ptr<float> input_a, input_b; // num_devices elements
+scoped_aligned_ptr<float> output;           // num_devices elements
+scoped_array<float> ref_output; // num_devices elements
 // scoped_array<unsigned> n_per_device;          // num_devices elements
 
 // Function prototypes
