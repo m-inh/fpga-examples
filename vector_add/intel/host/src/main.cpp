@@ -11,14 +11,14 @@ using namespace aocl_utils;
 std::string binary_file = "vector_add.aocx";
 cl_platform_id platform = NULL;
 unsigned num_devices = 0;
-scoped_array<cl_device_id> device; // num_devices elements
+cl_device_id device; // num_devices elements
 cl_context context = NULL;
-scoped_array<cl_command_queue> queue; // num_devices elements
+cl_command_queue queue; // num_devices elements
 cl_program program = NULL;
-scoped_array<cl_kernel> kernel; // num_devices elements
-scoped_array<cl_mem> input_a_buf; // num_devices elements
-scoped_array<cl_mem> input_b_buf; // num_devices elements
-scoped_array<cl_mem> output_buf;  // num_devices elements
+cl_kernel kernel; // num_devices elements
+cl_mem input_a_buf; 
+cl_mem input_b_buf; 
+cl_mem output_buf;  
 
 // Problem data.
 unsigned N = 1000000; // problem size
@@ -58,13 +58,13 @@ int main(int argc, char **argv)
 
     // Initialize the problem data.
     // Requires the number of devices to be known.
-    init_problem();
+    // init_problem();
 
     // Run the kernel.
-    run();
+    // run();
 
     // Free the resources allocated
-    cleanup();
+    // cleanup();
 
     return 0;
 }
@@ -98,77 +98,54 @@ bool init_opencl()
     }
 
     // Query the available OpenCL device.
-    device.reset(getDevices(platform, CL_DEVICE_TYPE_ALL, &num_devices));
+    cl_device_id *devices = getDevices(platform, CL_DEVICE_TYPE_ALL, &num_devices);
+
     printf("Platform: %s\n", getPlatformName(platform).c_str());
     
     printf("Found %d device(s)\n", num_devices);
     for (unsigned i = 0; i < num_devices; ++i)
     {
-        printf("  %s\n", getDeviceName(device[i]).c_str());
+        printf("  %s\n", getDeviceName(devices[i]).c_str());
     }
 
-    // use 1 device
-    num_devices = 1;
+    // pick 1st device
+    device = devices[0];
+
+    printf("Choose device: %d\n", device);
+    printf("  %s: %s\n", getDeviceName(device).c_str());
 
     // Create the context.
-    context = clCreateContext(NULL, num_devices, device, &oclContextCallback, NULL, &status);
+    context = clCreateContext(NULL, 1, device, &oclContextCallback, NULL, &status);
     checkError(status, "Failed to create context");
 
     // Create the program for all device. Use the first device as the
     // representative device (assuming all device are of the same type).
-    // std::string binary_file = getBoardBinaryFile("vector_add", device[0]);
-    // std::string binary_file = getBoardBinary(binaryFile, device[0]);
     printf("Using kernel binary: %s\n", binary_file.c_str());
-    program = createProgramFromBinary(context, binary_file.c_str(), device, num_devices);
+    program = createProgramFromBinary(context, binary_file.c_str(), device, 1);
 
     // Build the program that was just created.
     status = clBuildProgram(program, 0, NULL, "", NULL, NULL);
     checkError(status, "Failed to build program");
 
-    // Create per-device objects.
-    queue.reset(num_devices);
-    kernel.reset(num_devices);
-    n_per_device.reset(num_devices);
+    // Command queue.
+    queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
+    checkError(status, "Failed to create command queue");
 
-    input_a_buf.reset(num_devices);
-    input_b_buf.reset(num_devices);
-    output_buf.reset(num_devices);
+    // Kernel.
+    const char *kernel_name = "vector_add";
+    kernel = clCreateKernel(program, kernel_name, &status);
+    checkError(status, "Failed to create kernel");
 
-    for (unsigned i = 0; i < num_devices; ++i)
-    {
-        // Command queue.
-        queue[i] = clCreateCommandQueue(context, device[i], CL_QUEUE_PROFILING_ENABLE, &status);
-        checkError(status, "Failed to create command queue");
+    // Input buffers.
+    input_a_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, N * sizeof(float), NULL, &status);
+    checkError(status, "Failed to create buffer for input A");
 
-        // Kernel.
-        const char *kernel_name = "vector_add";
-        kernel[i] = clCreateKernel(program, kernel_name, &status);
-        checkError(status, "Failed to create kernel");
+    input_b_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, N * sizeof(float), NULL, &status);
+    checkError(status, "Failed to create buffer for input B");
 
-        // Determine the number of elements processed by this device.
-        n_per_device[i] = N / num_devices; // number of elements handled by this device
-
-        // Spread out the remainder of the elements over the first
-        // N % num_devices.
-        if (i < (N % num_devices))
-        {
-            n_per_device[i]++;
-        }
-
-        // Input buffers.
-        input_a_buf[i] = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                        n_per_device[i] * sizeof(float), NULL, &status);
-        checkError(status, "Failed to create buffer for input A");
-
-        input_b_buf[i] = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                        n_per_device[i] * sizeof(float), NULL, &status);
-        checkError(status, "Failed to create buffer for input B");
-
-        // Output buffer.
-        output_buf[i] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
-                                       n_per_device[i] * sizeof(float), NULL, &status);
-        checkError(status, "Failed to create buffer for output");
-    }
+    // Output buffer.
+    output_buf = clCreateBuffer(context, CL_MEM_WRITE_ONLY, N * sizeof(float), NULL, &status);
+    checkError(status, "Failed to create buffer for output");
 
     return true;
 }
