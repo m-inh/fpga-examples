@@ -15,21 +15,14 @@ cl_context context = NULL;
 scoped_array<cl_command_queue> queue; // num_devices elements
 cl_program program = NULL;
 scoped_array<cl_kernel> kernel; // num_devices elements
-#if USE_SVM_API == 0
 scoped_array<cl_mem> input_a_buf; // num_devices elements
 scoped_array<cl_mem> input_b_buf; // num_devices elements
 scoped_array<cl_mem> output_buf;  // num_devices elements
-#endif                            /* USE_SVM_API == 0 */
 
 // Problem data.
 unsigned N = 1000000; // problem size
-#if USE_SVM_API == 0
 scoped_array<scoped_aligned_ptr<float> > input_a, input_b; // num_devices elements
 scoped_array<scoped_aligned_ptr<float> > output;           // num_devices elements
-#else
-scoped_array<scoped_SVM_aligned_ptr<float> > input_a, input_b; // num_devices elements
-scoped_array<scoped_SVM_aligned_ptr<float> > output;           // num_devices elements
-#endif                                        /* USE_SVM_API == 0 */
 scoped_array<scoped_array<float> > ref_output; // num_devices elements
 scoped_array<unsigned> n_per_device;          // num_devices elements
 
@@ -91,7 +84,7 @@ bool init_opencl()
     }
 
     // Get the OpenCL platform.
-    platform = findPlatform("Intel");
+    platform = findPlatform("Xilinx");
     if (platform == NULL)
     {
         printf("ERROR: Unable to find Intel FPGA OpenCL platform.\n");
@@ -125,11 +118,9 @@ bool init_opencl()
     queue.reset(num_devices);
     kernel.reset(num_devices);
     n_per_device.reset(num_devices);
-#if USE_SVM_API == 0
     input_a_buf.reset(num_devices);
     input_b_buf.reset(num_devices);
     output_buf.reset(num_devices);
-#endif /* USE_SVM_API == 0 */
 
     for (unsigned i = 0; i < num_devices; ++i)
     {
@@ -152,7 +143,6 @@ bool init_opencl()
             n_per_device[i]++;
         }
 
-#if USE_SVM_API == 0
         // Input buffers.
         input_a_buf[i] = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                         n_per_device[i] * sizeof(float), NULL, &status);
@@ -166,25 +156,6 @@ bool init_opencl()
         output_buf[i] = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
                                        n_per_device[i] * sizeof(float), NULL, &status);
         checkError(status, "Failed to create buffer for output");
-#else
-        cl_device_svm_capabilities caps = 0;
-
-        status = clGetDeviceInfo(
-            device[i],
-            CL_DEVICE_SVM_CAPABILITIES,
-            sizeof(cl_device_svm_capabilities),
-            &caps,
-            0);
-        checkError(status, "Failed to get device info");
-
-        if (!(caps & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER))
-        {
-            printf("The host was compiled with USE_SVM_API, however the device currently being targeted does not support SVM.\n");
-            // Free the resources allocated
-            cleanup();
-            return false;
-        }
-#endif /* USE_SVM_API == 0 */
     }
 
     return true;
@@ -209,7 +180,6 @@ void init_problem()
     // aligned buffer.
     for (unsigned i = 0; i < num_devices; ++i)
     {
-#if USE_SVM_API == 0
         input_a[i].reset(n_per_device[i]);
         input_b[i].reset(n_per_device[i]);
         output[i].reset(n_per_device[i]);
@@ -221,33 +191,6 @@ void init_problem()
             input_b[i][j] = rand_float();
             ref_output[i][j] = input_a[i][j] + input_b[i][j];
         }
-#else
-        input_a[i].reset(context, n_per_device[i]);
-        input_b[i].reset(context, n_per_device[i]);
-        output[i].reset(context, n_per_device[i]);
-        ref_output[i].reset(n_per_device[i]);
-
-        cl_int status;
-
-        status = clEnqueueSVMMap(queue[i], CL_TRUE, CL_MAP_WRITE,
-                                 (void *)input_a[i], n_per_device[i] * sizeof(float), 0, NULL, NULL);
-        checkError(status, "Failed to map input A");
-        status = clEnqueueSVMMap(queue[i], CL_TRUE, CL_MAP_WRITE,
-                                 (void *)input_b[i], n_per_device[i] * sizeof(float), 0, NULL, NULL);
-        checkError(status, "Failed to map input B");
-
-        for (unsigned j = 0; j < n_per_device[i]; ++j)
-        {
-            input_a[i][j] = rand_float();
-            input_b[i][j] = rand_float();
-            ref_output[i][j] = input_a[i][j] + input_b[i][j];
-        }
-
-        status = clEnqueueSVMUnmap(queue[i], (void *)input_a[i], 0, NULL, NULL);
-        checkError(status, "Failed to unmap input A");
-        status = clEnqueueSVMUnmap(queue[i], (void *)input_b[i], 0, NULL, NULL);
-        checkError(status, "Failed to unmap input B");
-#endif /* USE_SVM_API == 0 */
     }
 }
 
@@ -264,7 +207,6 @@ void run()
     for (unsigned i = 0; i < num_devices; ++i)
     {
 
-#if USE_SVM_API == 0
         // Transfer inputs to each device. Each of the host buffers supplied to
         // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
         // for the host-to-device transfer.
@@ -276,12 +218,10 @@ void run()
         status = clEnqueueWriteBuffer(queue[i], input_b_buf[i], CL_FALSE,
                                       0, n_per_device[i] * sizeof(float), input_b[i], 0, NULL, &write_event[1]);
         checkError(status, "Failed to transfer input B");
-#endif /* USE_SVM_API == 0 */
 
         // Set kernel arguments.
         unsigned argi = 0;
 
-#if USE_SVM_API == 0
         status = clSetKernelArg(kernel[i], argi++, sizeof(cl_mem), &input_a_buf[i]);
         checkError(status, "Failed to set argument %d", argi - 1);
 
@@ -290,16 +230,6 @@ void run()
 
         status = clSetKernelArg(kernel[i], argi++, sizeof(cl_mem), &output_buf[i]);
         checkError(status, "Failed to set argument %d", argi - 1);
-#else
-        status = clSetKernelArgSVMPointer(kernel[i], argi++, (void *)input_a[i]);
-        checkError(status, "Failed to set argument %d", argi - 1);
-
-        status = clSetKernelArgSVMPointer(kernel[i], argi++, (void *)input_b[i]);
-        checkError(status, "Failed to set argument %d", argi - 1);
-
-        status = clSetKernelArgSVMPointer(kernel[i], argi++, (void *)output[i]);
-        checkError(status, "Failed to set argument %d", argi - 1);
-#endif /* USE_SVM_API == 0 */
 
         // Enqueue kernel.
         // Use a global work size corresponding to the number of elements to add
@@ -314,16 +244,10 @@ void run()
         const size_t global_work_size = n_per_device[i];
         printf("Launching for device %d (%zd elements)\n", i, global_work_size);
 
-#if USE_SVM_API == 0
         status = clEnqueueNDRangeKernel(queue[i], kernel[i], 1, NULL,
                                         &global_work_size, NULL, 2, write_event, &kernel_event[i]);
-#else
-        status = clEnqueueNDRangeKernel(queue[i], kernel[i], 1, NULL,
-                                        &global_work_size, NULL, 0, NULL, &kernel_event[i]);
-#endif /* USE_SVM_API == 0 */
         checkError(status, "Failed to launch kernel");
 
-#if USE_SVM_API == 0
         // Read the result. This the final operation.
         status = clEnqueueReadBuffer(queue[i], output_buf[i], CL_FALSE,
                                      0, n_per_device[i] * sizeof(float), output[i], 1, &kernel_event[i], &finish_event[i]);
@@ -331,12 +255,6 @@ void run()
         // Release local events.
         clReleaseEvent(write_event[0]);
         clReleaseEvent(write_event[1]);
-#else
-        status = clEnqueueSVMMap(queue[i], CL_TRUE, CL_MAP_READ,
-                                 (void *)output[i], n_per_device[i] * sizeof(float), 0, NULL, NULL);
-        checkError(status, "Failed to map output");
-        clFinish(queue[i]);
-#endif /* USE_SVM_API == 0 */
     }
 
     // Wait for all devices to finish.
@@ -376,13 +294,6 @@ void run()
         }
     }
 
-#if USE_SVM_API == 1
-    for (unsigned i = 0; i < num_devices; ++i)
-    {
-        status = clEnqueueSVMUnmap(queue[i], (void *)output[i], 0, NULL, NULL);
-        checkError(status, "Failed to unmap output");
-    }
-#endif /* USE_SVM_API == 1 */
     printf("\nVerification: %s\n", pass ? "PASS" : "FAIL");
 }
 
@@ -399,7 +310,6 @@ void cleanup()
         {
             clReleaseCommandQueue(queue[i]);
         }
-#if USE_SVM_API == 0
         if (input_a_buf && input_a_buf[i])
         {
             clReleaseMemObject(input_a_buf[i]);
@@ -412,14 +322,6 @@ void cleanup()
         {
             clReleaseMemObject(output_buf[i]);
         }
-#else
-        if (input_a[i].get())
-            input_a[i].reset();
-        if (input_b[i].get())
-            input_b[i].reset();
-        if (output[i].get())
-            output[i].reset();
-#endif /* USE_SVM_API == 0 */
     }
 
     if (program)
