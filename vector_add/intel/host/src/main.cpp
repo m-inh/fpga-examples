@@ -8,7 +8,7 @@
 using namespace aocl_utils;
 
 // OpenCL runtime configuration
-std:string binary_file = NULL;
+std::string binary_file = "vector_add.aocx";
 cl_platform_id platform = NULL;
 unsigned num_devices = 0;
 scoped_array<cl_device_id> device; // num_devices elements
@@ -39,12 +39,15 @@ int main(int argc, char **argv)
 {
     Options options(argc, argv);
 
-    binary_file = argv[1];
-
     // Optional argument to specify the problem size.
     if (options.has("n"))
     {
         N = options.get<unsigned>("n");
+    }
+
+    if (options.has("kernel"))
+    {
+        binary_file = options.get<unsigned>("kernel");
     }
 
     // Initialize OpenCL.
