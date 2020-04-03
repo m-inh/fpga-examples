@@ -8,6 +8,7 @@
 using namespace aocl_utils;
 
 // OpenCL runtime configuration
+std:string binary_file = NULL;
 cl_platform_id platform = NULL;
 unsigned num_devices = 0;
 scoped_array<cl_device_id> device; // num_devices elements
@@ -37,6 +38,8 @@ void cleanup();
 int main(int argc, char **argv)
 {
     Options options(argc, argv);
+
+    binary_file = argv[1];
 
     // Optional argument to specify the problem size.
     if (options.has("n"))
@@ -84,7 +87,7 @@ bool init_opencl()
     }
 
     // Get the OpenCL platform.
-    platform = findPlatform("Xilinx");
+    platform = findPlatform("Intel");
     if (platform == NULL)
     {
         printf("ERROR: Unable to find Intel FPGA OpenCL platform.\n");
@@ -106,8 +109,9 @@ bool init_opencl()
 
     // Create the program for all device. Use the first device as the
     // representative device (assuming all device are of the same type).
-    std::string binary_file = getBoardBinaryFile("vector_add", device[0]);
-    printf("Using AOCX: %s\n", binary_file.c_str());
+    // std::string binary_file = getBoardBinaryFile("vector_add", device[0]);
+    // std::string binary_file = getBoardBinary(binaryFile, device[0]);
+    printf("Using kernel binary: %s\n", binary_file.c_str());
     program = createProgramFromBinary(context, binary_file.c_str(), device, num_devices);
 
     // Build the program that was just created.
