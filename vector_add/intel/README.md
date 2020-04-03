@@ -35,6 +35,19 @@ make
 
 The compiled host program will be located at bin/host.
 
+Plain make command:
+```
+g++ -O2 -fPIC -I./common/inc \
+    -I/root/inteldevstack/intelFPGA_pro/hld/host/include \
+    host/src/main.cpp common/src/AOCLUtils/opencl.cpp common/src/AOCLUtils/options.cpp \
+    -L/root/inteldevstack/intelFPGA_pro/hld/linux64/lib \
+    -L/root/inteldevstack/a10_gx_pac_ias_1_2_pv/opencl/opencl_bsp/linux64/lib \
+    -L/root/inteldevstack/intelFPGA_pro/hld/host/linux64/lib \
+    -Wl,--no-as-needed -lalteracl  -lintel_opae_mmd -lrt -lelf \
+    -lrt -lpthread \
+	-o bin/host
+```
+
 ## Running the Host Program
 Before running the host program, you should have compiled the OpenCL kernel and the host program. Refer to the above sections if you have not completed those steps.
 
