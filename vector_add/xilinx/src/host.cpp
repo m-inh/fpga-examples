@@ -1,129 +1,141 @@
-#include "xcl2.hpp"
-#include <vector>
+/*
+Sources: http://www.eriksmistad.no/getting-started-with-opencl-and-gpu-computing/
+*/
 
-using std::vector;
+// openCL headers
 
-static const int DATA_SIZE = 1024;
-static const std::string error_message =
-    "Error: Result mismatch:\n"
-    "i = %d CPU result = %d Device result = %d\n";
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#else
+#include <CL/cl.h>
+#endif
 
-// This example illustrates the very simple OpenCL example that performs
-// an addition on two vectors
+#include <stdio.h>
+#include <stdlib.h>
+
+#define MAX_SOURCE_SIZE (0x100000)
+
 int main(int argc, char **argv)
 {
 
-    if (argc != 2)
+    int SIZE = 1024;
+
+    // Allocate memories for input arrays and output array.
+    float *A = (float *)malloc(sizeof(float) * SIZE);
+    float *B = (float *)malloc(sizeof(float) * SIZE);
+
+    // Output
+    float *C = (float *)malloc(sizeof(float) * SIZE);
+
+    // Initialize values for array members.
+    int i = 0;
+    for (i = 0; i < SIZE; ++i)
     {
-        std::cout << "Usage: " << argv[0] << " <XCLBIN File>" << std::endl;
-        return EXIT_FAILURE;
+        A[i] = i + 1;
+        B[i] = (i + 1) * 2;
     }
 
-    std::string binaryFile = argv[1];
-    // compute the size of array in bytes
-    size_t size_in_bytes = DATA_SIZE * sizeof(int);
-    cl_int err;
+    // Load kernel from file vector_addition.cl
 
-    // Creates a vector of DATA_SIZE elements with an initial value of 10 and 32
-    vector<int, aligned_allocator<int>> source_a(DATA_SIZE, 10);
-    vector<int, aligned_allocator<int>> source_b(DATA_SIZE, 32);
-    vector<int, aligned_allocator<int>> source_results(DATA_SIZE);
+    FILE *kernelFile;
+    char *kernelSource;
+    size_t kernelSize;
 
-    // The get_xil_devices will return vector of Xilinx Devices
-    auto devices = xcl::get_xil_devices();
-    auto device = devices[0];
+    kernelFile = fopen(argv[1], "r");
 
-    //Creating Context and Command Queue for selected Device
-    OCL_CHECK(err, cl::Context context(device, NULL, NULL, NULL, &err));
-    OCL_CHECK(
-        err,
-        cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE, &err));
-    OCL_CHECK(err,
-              std::string device_name = device.getInfo<CL_DEVICE_NAME>(&err));
-    std::cout << "Found Device=" << device_name.c_str() << std::endl;
-
-    // read_binary() command will find the OpenCL binary file created using the
-    // xocc compiler load into OpenCL Binary and return a pointer to file buffer
-    // and it can contain many functions which can be executed on the
-    // device.
-    auto fileBuf = xcl::read_binary_file(binaryFile);
-    cl::Program::Binaries bins{{fileBuf.data(), fileBuf.size()}};
-    devices.resize(1);
-    OCL_CHECK(err, cl::Program program(context, devices, bins, NULL, &err));
-
-    // These commands will allocate memory on the FPGA. The cl::Buffer objects can
-    // be used to reference the memory locations on the device. The cl::Buffer
-    // object cannot be referenced directly and must be passed to other OpenCL
-    // functions.
-    OCL_CHECK(err,
-              cl::Buffer buffer_a(context,
-                                  CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
-                                  size_in_bytes,
-                                  source_a.data(),
-                                  &err));
-    OCL_CHECK(err,
-              cl::Buffer buffer_b(context,
-                                  CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY,
-                                  size_in_bytes,
-                                  source_b.data(),
-                                  &err));
-    OCL_CHECK(err,
-              cl::Buffer buffer_result(context,
-                                       CL_MEM_USE_HOST_PTR | CL_MEM_WRITE_ONLY,
-                                       size_in_bytes,
-                                       source_results.data(),
-                                       &err));
-
-    // This call will extract a kernel out of the program we loaded in the
-    // previous line. A kernel is an OpenCL function that is executed on the
-    // FPGA. This function is defined in the src/vetor_addition.cl file.
-    OCL_CHECK(err, cl::Kernel krnl_vector_add(program, "vector_add", &err));
-
-    //set the kernel Arguments
-    int narg = 0;
-    OCL_CHECK(err, err = krnl_vector_add.setArg(narg++, buffer_result));
-    OCL_CHECK(err, err = krnl_vector_add.setArg(narg++, buffer_a));
-    OCL_CHECK(err, err = krnl_vector_add.setArg(narg++, buffer_b));
-    OCL_CHECK(err, err = krnl_vector_add.setArg(narg++, DATA_SIZE));
-
-    // These commands will load the source_a and source_b vectors from the host
-    // application and into the buffer_a and buffer_b cl::Buffer objects. The data
-    // will be be transferred from system memory over PCIe to the FPGA on-board
-    // DDR memory.
-    OCL_CHECK(err,
-              err = q.enqueueMigrateMemObjects({buffer_a, buffer_b},
-                                               0 /* 0 means from host*/));
-
-    //Launch the Kernel
-    OCL_CHECK(err, err = q.enqueueTask(krnl_vector_add));
-
-    // The result of the previous kernel execution will need to be retrieved in
-    // order to view the results. This call will write the data from the
-    // buffer_result cl_mem object to the source_results vector
-    OCL_CHECK(err,
-              err = q.enqueueMigrateMemObjects({buffer_result},
-                                               CL_MIGRATE_MEM_OBJECT_HOST));
-    q.finish();
-
-    int match = 0;
-    printf("Result = \n");
-    for (int i = 0; i < DATA_SIZE; i++)
+    if (!kernelFile)
     {
-        int host_result = source_a[i] + source_b[i];
-        if (source_results[i] != host_result)
+
+        fprintf(stderr, "No file named vector_addition.cl was found\n");
+
+        exit(-1);
+    }
+    kernelSource = (char *)malloc(MAX_SOURCE_SIZE);
+    kernelSize = fread(kernelSource, 1, MAX_SOURCE_SIZE, kernelFile);
+    fclose(kernelFile);
+
+    // Getting platform and device information
+    cl_platform_id platformId = NULL;
+    cl_device_id deviceID = NULL;
+    cl_uint retNumDevices;
+    cl_uint retNumPlatforms;
+    cl_int ret = clGetPlatformIDs(1, &platformId, &retNumPlatforms);
+    ret = clGetDeviceIDs(platformId, CL_DEVICE_TYPE_DEFAULT, 1, &deviceID, &retNumDevices);
+
+    // Creating context.
+    cl_context context = clCreateContext(NULL, 1, &deviceID, NULL, NULL, &ret);
+
+    // Creating command queue
+    cl_command_queue commandQueue = clCreateCommandQueue(context, deviceID, 0, &ret);
+
+    // Memory buffers for each array
+    cl_mem aMemObj = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZE * sizeof(float), NULL, &ret);
+    cl_mem bMemObj = clCreateBuffer(context, CL_MEM_READ_ONLY, SIZE * sizeof(float), NULL, &ret);
+    cl_mem cMemObj = clCreateBuffer(context, CL_MEM_WRITE_ONLY, SIZE * sizeof(float), NULL, &ret);
+
+    // Copy lists to memory buffers
+    ret = clEnqueueWriteBuffer(commandQueue, aMemObj, CL_TRUE, 0, SIZE * sizeof(float), A, 0, NULL, NULL);
+    ;
+    ret = clEnqueueWriteBuffer(commandQueue, bMemObj, CL_TRUE, 0, SIZE * sizeof(float), B, 0, NULL, NULL);
+
+    // Create program from kernel source
+    // cl_program program = clCreateProgramWithSource(context, 1, (const char **)&kernelSource, (const size_t *)&kernelSize, &ret);
+    cl_program program = clCreateProgramWithBinary(context, 1, &deviceID, kernelSize,
+                                                   (const unsigned char **)&kernelSource, &status, NULL);
+
+    // Build program
+    ret = clBuildProgram(program, 1, &deviceID, NULL, NULL, NULL);
+
+    // Create kernel
+    cl_kernel kernel = clCreateKernel(program, "vector_addition", &ret);
+
+    // Set arguments for kernel
+    ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&aMemObj);
+    ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&bMemObj);
+    ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&cMemObj);
+
+    // Execute the kernel
+    size_t globalItemSize = SIZE;
+    size_t localItemSize = 64; // globalItemSize has to be a multiple of localItemSize. 1024/64 = 16
+    ret = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL, &globalItemSize, &localItemSize, 0, NULL, NULL);
+
+    // Read from device back to host.
+    ret = clEnqueueReadBuffer(commandQueue, cMemObj, CL_TRUE, 0, SIZE * sizeof(float), C, 0, NULL, NULL);
+
+    // Write result
+    /*
+	for (i=0; i<SIZE; ++i) {
+		printf("%f + %f = %f\n", A[i], B[i], C[i]);
+	}
+	*/
+
+    // Test if correct answer
+    for (i = 0; i < SIZE; ++i)
+    {
+        if (C[i] != (A[i] + B[i]))
         {
-            printf(error_message.c_str(), i, host_result, source_results[i]);
-            match = 1;
+            printf("Something didn't work correctly! Failed test. \n");
             break;
         }
-        else
-        {
-            printf("%d ", source_results[i]);
-            if (((i + 1) % 16) == 0)
-                printf("\n");
-        }
+    }
+    if (i == SIZE)
+    {
+        printf("Everything seems to work fine! \n");
     }
 
-    std::cout << "TEST " << (match ? "FAILED" : "PASSED") << std::endl;
-    return (match ? EXIT_FAILURE : EXIT_SUCCESS);
+    // Clean up, release memory.
+    ret = clFlush(commandQueue);
+    ret = clFinish(commandQueue);
+    ret = clReleaseCommandQueue(commandQueue);
+    ret = clReleaseKernel(kernel);
+    ret = clReleaseProgram(program);
+    ret = clReleaseMemObject(aMemObj);
+    ret = clReleaseMemObject(bMemObj);
+    ret = clReleaseMemObject(cMemObj);
+    ret = clReleaseContext(context);
+    free(A);
+    free(B);
+    free(C);
+
+    return 0;
 }
