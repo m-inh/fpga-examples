@@ -25,13 +25,13 @@ unsigned N = 1000000; // problem size
 scoped_array<scoped_aligned_ptr<float> > input_a, input_b; // num_devices elements
 scoped_array<scoped_aligned_ptr<float> > output;           // num_devices elements
 scoped_array<scoped_array<float> > ref_output; // num_devices elements
-scoped_array<unsigned> n_per_device;          // num_devices elements
+// scoped_array<unsigned> n_per_device;          // num_devices elements
 
 // Function prototypes
 float rand_float();
 bool init_opencl();
-//void init_problem();
-//void run();
+void init_problem();
+void run();
 void cleanup();
 
 // Entry point.
@@ -58,13 +58,13 @@ int main(int argc, char **argv)
 
     // Initialize the problem data.
     // Requires the number of devices to be known.
-    // init_problem();
+    init_problem();
 
     // Run the kernel.
-    // run();
+    run();
 
     // Free the resources allocated
-    // cleanup();
+    cleanup();
 
     return 0;
 }
@@ -150,7 +150,7 @@ bool init_opencl()
     return true;
 }
 
-/*
+
 // Initialize the data for the problem. Requires num_devices to be known.
 void init_problem()
 {
@@ -159,28 +159,15 @@ void init_problem()
         checkError(-1, "No devices");
     }
 
-    input_a.reset(num_devices);
-    input_b.reset(num_devices);
-    output.reset(num_devices);
-    ref_output.reset(num_devices);
-
     // Generate input vectors A and B and the reference output consisting
     // of a total of N elements.
     // We create separate arrays for each device so that each device has an
     // aligned buffer.
-    for (unsigned i = 0; i < num_devices; ++i)
+    for (unsigned i = 0; i < N; ++i)
     {
-        input_a[i].reset(n_per_device[i]);
-        input_b[i].reset(n_per_device[i]);
-        output[i].reset(n_per_device[i]);
-        ref_output[i].reset(n_per_device[i]);
-
-        for (unsigned j = 0; j < n_per_device[i]; ++j)
-        {
-            input_a[i][j] = rand_float();
-            input_b[i][j] = rand_float();
-            ref_output[i][j] = input_a[i][j] + input_b[i][j];
-        }
+        input_a[i] = rand_float();
+        input_b[i] = rand_float();
+        ref_output[i] = input_a[i] + input_b[i];
     }
 }
 
@@ -191,34 +178,30 @@ void run()
     const double start_time = getCurrentTimestamp();
 
     // Launch the problem for each device.
-    scoped_array<cl_event> kernel_event(num_devices);
-    scoped_array<cl_event> finish_event(num_devices);
+    cl_event kernel_event;
+    cl_event finish_event;
 
-    for (unsigned i = 0; i < num_devices; ++i)
     {
-
         // Transfer inputs to each device. Each of the host buffers supplied to
         // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
         // for the host-to-device transfer.
         cl_event write_event[2];
-        status = clEnqueueWriteBuffer(queue[i], input_a_buf[i], CL_FALSE,
-                                      0, n_per_device[i] * sizeof(float), input_a[i], 0, NULL, &write_event[0]);
+        status = clEnqueueWriteBuffer(queue, input_a_buf, CL_FALSE, 0, N * sizeof(float), input_a, 0, NULL, &write_event[0]);
         checkError(status, "Failed to transfer input A");
 
-        status = clEnqueueWriteBuffer(queue[i], input_b_buf[i], CL_FALSE,
-                                      0, n_per_device[i] * sizeof(float), input_b[i], 0, NULL, &write_event[1]);
+        status = clEnqueueWriteBuffer(queue, input_b_buf, CL_FALSE, 0, N * sizeof(float), input_b, 0, NULL, &write_event[1]);
         checkError(status, "Failed to transfer input B");
 
         // Set kernel arguments.
         unsigned argi = 0;
 
-        status = clSetKernelArg(kernel[i], argi++, sizeof(cl_mem), &input_a_buf[i]);
+        status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_a_buf);
         checkError(status, "Failed to set argument %d", argi - 1);
 
-        status = clSetKernelArg(kernel[i], argi++, sizeof(cl_mem), &input_b_buf[i]);
+        status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_b_buf);
         checkError(status, "Failed to set argument %d", argi - 1);
 
-        status = clSetKernelArg(kernel[i], argi++, sizeof(cl_mem), &output_buf[i]);
+        status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf);
         checkError(status, "Failed to set argument %d", argi - 1);
 
         // Enqueue kernel.
@@ -231,16 +214,14 @@ void run()
         //
         // Events are used to ensure that the kernel is not launched until
         // the writes to the input buffers have completed.
-        const size_t global_work_size = n_per_device[i];
-        printf("Launching for device %d (%zd elements)\n", i, global_work_size);
+        const size_t global_work_size = N;
+        printf("Launching for device %d (%zd elements)\n", device, global_work_size);
 
-        status = clEnqueueNDRangeKernel(queue[i], kernel[i], 1, NULL,
-                                        &global_work_size, NULL, 2, write_event, &kernel_event[i]);
+        status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size, NULL, 2, write_event, &kernel_event);
         checkError(status, "Failed to launch kernel");
 
         // Read the result. This the final operation.
-        status = clEnqueueReadBuffer(queue[i], output_buf[i], CL_FALSE,
-                                     0, n_per_device[i] * sizeof(float), output[i], 1, &kernel_event[i], &finish_event[i]);
+        status = clEnqueueReadBuffer(queue, output_buf, CL_FALSE, 0, N * sizeof(float), output, 1, &kernel_event, &finish_event);
 
         // Release local events.
         clReleaseEvent(write_event[0]);
@@ -248,7 +229,7 @@ void run()
     }
 
     // Wait for all devices to finish.
-    clWaitForEvents(num_devices, finish_event);
+    clWaitForEvents(1, finish_event);
 
     const double end_time = getCurrentTimestamp();
 
@@ -256,29 +237,25 @@ void run()
     printf("\nTime: %0.3f ms\n", (end_time - start_time) * 1e3);
 
     // Get kernel times using the OpenCL event profiling API.
-    for (unsigned i = 0; i < num_devices; ++i)
     {
-        cl_ulong time_ns = getStartEndTime(kernel_event[i]);
-        printf("Kernel time (device %d): %0.3f ms\n", i, double(time_ns) * 1e-6);
+        cl_ulong time_ns = getStartEndTime(kernel_event);
+        printf("Kernel time (device %d): %0.3f ms\n", device, double(time_ns) * 1e-6);
     }
 
     // Release all events.
-    for (unsigned i = 0; i < num_devices; ++i)
     {
-        clReleaseEvent(kernel_event[i]);
-        clReleaseEvent(finish_event[i]);
+        clReleaseEvent(kernel_event);
+        clReleaseEvent(finish_event);
     }
 
     // Verify results.
     bool pass = true;
-    for (unsigned i = 0; i < num_devices && pass; ++i)
     {
-        for (unsigned j = 0; j < n_per_device[i] && pass; ++j)
+        for (unsigned j = 0; j < N && pass; ++j)
         {
-            if (fabsf(output[i][j] - ref_output[i][j]) > 1.0e-5f)
+            if (fabsf(output[j] - ref_output[j]) > 1.0e-5f)
             {
-                printf("Failed verification @ device %d, index %d\nOutput: %f\nReference: %f\n",
-                       i, j, output[i][j], ref_output[i][j]);
+                printf("Failed verification @ device %d, index %d\nOutput: %f\nReference: %f\n", device, j, output[j], ref_output[j]);
                 pass = false;
             }
         }
@@ -286,8 +263,6 @@ void run()
 
     printf("\nVerification: %s\n", pass ? "PASS" : "FAIL");
 }
-
-**/
 
 // Free the resources allocated during initialization
 void cleanup()
