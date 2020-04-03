@@ -112,7 +112,7 @@ bool init_opencl()
     device = devices[0];
 
     printf("Choose device: %d\n", device);
-    printf("  %s: %s\n", getDeviceName(device).c_str());
+    printf("  name: %s\n", getDeviceName(device).c_str());
 
     // Create the context.
     context = clCreateContext(NULL, 1, &device, &oclContextCallback, NULL, &status);
