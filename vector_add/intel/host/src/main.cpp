@@ -22,9 +22,9 @@ cl_mem output_buf;
 
 // Problem data.
 unsigned N = 1000000; // problem size
-scoped_aligned_ptr<float> input_a, input_b; // num_devices elements
-scoped_aligned_ptr<float> output;           // num_devices elements
-scoped_array<float> ref_output; // num_devices elements
+float input_a[1000000], input_b[1000000]; // num_devices elements
+float output[1000000];           // num_devices elements
+float ref_output[1000000]; // num_devices elements
 // scoped_array<unsigned> n_per_device;          // num_devices elements
 
 // Function prototypes
@@ -186,10 +186,10 @@ void run()
         // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
         // for the host-to-device transfer.
         cl_event write_event[2];
-        status = clEnqueueWriteBuffer(queue, input_a_buf, CL_FALSE, 0, N * sizeof(float), &input_a, 0, NULL, &write_event[0]);
+        status = clEnqueueWriteBuffer(queue, input_a_buf, CL_FALSE, 0, N * sizeof(float), input_a, 0, NULL, &write_event[0]);
         checkError(status, "Failed to transfer input A");
 
-        status = clEnqueueWriteBuffer(queue, input_b_buf, CL_FALSE, 0, N * sizeof(float), &input_b, 0, NULL, &write_event[1]);
+        status = clEnqueueWriteBuffer(queue, input_b_buf, CL_FALSE, 0, N * sizeof(float), input_b, 0, NULL, &write_event[1]);
         checkError(status, "Failed to transfer input B");
 
         // Set kernel arguments.
