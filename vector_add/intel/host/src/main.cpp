@@ -100,11 +100,15 @@ bool init_opencl()
     // Query the available OpenCL device.
     device.reset(getDevices(platform, CL_DEVICE_TYPE_ALL, &num_devices));
     printf("Platform: %s\n", getPlatformName(platform).c_str());
-    printf("Using %d device(s)\n", num_devices);
+    
+    printf("Found %d device(s)\n", num_devices);
     for (unsigned i = 0; i < num_devices; ++i)
     {
         printf("  %s\n", getDeviceName(device[i]).c_str());
     }
+
+    // use 1 device
+    num_devices = 1;
 
     // Create the context.
     context = clCreateContext(NULL, num_devices, device, &oclContextCallback, NULL, &status);
@@ -125,6 +129,7 @@ bool init_opencl()
     queue.reset(num_devices);
     kernel.reset(num_devices);
     n_per_device.reset(num_devices);
+
     input_a_buf.reset(num_devices);
     input_b_buf.reset(num_devices);
     output_buf.reset(num_devices);
