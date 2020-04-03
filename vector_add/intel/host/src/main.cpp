@@ -11,11 +11,11 @@ using namespace aocl_utils;
 std::string binary_file = "vector_add.aocx";
 cl_platform_id platform = NULL;
 unsigned num_devices = 0;
-cl_device_id device; // num_devices elements
+cl_device_id device;
 cl_context context = NULL;
-cl_command_queue queue; // num_devices elements
+cl_command_queue queue; 
 cl_program program = NULL;
-cl_kernel kernel; // num_devices elements
+cl_kernel kernel; 
 cl_mem input_a_buf; 
 cl_mem input_b_buf; 
 cl_mem output_buf;  
@@ -24,9 +24,9 @@ cl_mem output_buf;
 unsigned N = 1000000; // problem size
 float* input_a;
 float* input_b;
-float* output;           // num_devices elements
-float* ref_output; // num_devices elements
-// scoped_array<unsigned> n_per_device;          // num_devices elements
+float* output;           
+float* ref_output; 
+// scoped_array<unsigned> n_per_device;          
 
 // Function prototypes
 float rand_float();
