@@ -30,8 +30,8 @@ scoped_array<unsigned> n_per_device;          // num_devices elements
 // Function prototypes
 float rand_float();
 bool init_opencl();
-void init_problem();
-void run();
+//void init_problem();
+//void run();
 void cleanup();
 
 // Entry point.
@@ -115,13 +115,13 @@ bool init_opencl()
     printf("  %s: %s\n", getDeviceName(device).c_str());
 
     // Create the context.
-    context = clCreateContext(NULL, 1, device, &oclContextCallback, NULL, &status);
+    context = clCreateContext(NULL, 1, &device, &oclContextCallback, NULL, &status);
     checkError(status, "Failed to create context");
 
     // Create the program for all device. Use the first device as the
     // representative device (assuming all device are of the same type).
     printf("Using kernel binary: %s\n", binary_file.c_str());
-    program = createProgramFromBinary(context, binary_file.c_str(), device, 1);
+    program = createProgramFromBinary(context, binary_file.c_str(), &device, 1);
 
     // Build the program that was just created.
     status = clBuildProgram(program, 0, NULL, "", NULL, NULL);
@@ -287,32 +287,31 @@ void run()
     printf("\nVerification: %s\n", pass ? "PASS" : "FAIL");
 }
 
+**/
+
 // Free the resources allocated during initialization
 void cleanup()
 {
-    for (unsigned i = 0; i < num_devices; ++i)
-    {
-        if (kernel && kernel[i])
-        {
-            clReleaseKernel(kernel[i]);
-        }
-        if (queue && queue[i])
-        {
-            clReleaseCommandQueue(queue[i]);
-        }
-        if (input_a_buf && input_a_buf[i])
-        {
-            clReleaseMemObject(input_a_buf[i]);
-        }
-        if (input_b_buf && input_b_buf[i])
-        {
-            clReleaseMemObject(input_b_buf[i]);
-        }
-        if (output_buf && output_buf[i])
-        {
-            clReleaseMemObject(output_buf[i]);
-        }
-    }
+	if (kernel)
+	{
+	    clReleaseKernel(kernel);
+	}
+	if (queue && queue[i])
+	{
+	    clReleaseCommandQueue(queue[i]);
+	}
+	if (input_a_buf && input_a_buf[i])
+	{
+	    clReleaseMemObject(input_a_buf[i]);
+	}
+	if (input_b_buf && input_b_buf[i])
+	{
+	    clReleaseMemObject(input_b_buf[i]);
+	}
+	if (output_buf && output_buf[i])
+	{
+	    clReleaseMemObject(output_buf[i]);
+	}
 
     if (program)
     {
@@ -323,4 +322,4 @@ void cleanup()
         clReleaseContext(context);
     }
 }
-**/
+
