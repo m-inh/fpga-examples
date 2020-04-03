@@ -186,10 +186,10 @@ void run()
         // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
         // for the host-to-device transfer.
         cl_event write_event[2];
-        status = clEnqueueWriteBuffer(queue, input_a_buf, CL_FALSE, 0, N * sizeof(float), input_a, 0, NULL, &write_event[0]);
+        status = clEnqueueWriteBuffer(queue, input_a_buf, CL_FALSE, 0, N * sizeof(float), &input_a, 0, NULL, &write_event[0]);
         checkError(status, "Failed to transfer input A");
 
-        status = clEnqueueWriteBuffer(queue, input_b_buf, CL_FALSE, 0, N * sizeof(float), input_b, 0, NULL, &write_event[1]);
+        status = clEnqueueWriteBuffer(queue, input_b_buf, CL_FALSE, 0, N * sizeof(float), &input_b, 0, NULL, &write_event[1]);
         checkError(status, "Failed to transfer input B");
 
         // Set kernel arguments.
