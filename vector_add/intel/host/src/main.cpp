@@ -150,6 +150,7 @@ bool init_opencl()
     return true;
 }
 
+/*
 // Initialize the data for the problem. Requires num_devices to be known.
 void init_problem()
 {
@@ -322,3 +323,4 @@ void cleanup()
         clReleaseContext(context);
     }
 }
+**/
