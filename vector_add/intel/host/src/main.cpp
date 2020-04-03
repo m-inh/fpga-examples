@@ -22,9 +22,10 @@ cl_mem output_buf;
 
 // Problem data.
 unsigned N = 1000000; // problem size
-float *input_a, input_b[1000000]; // num_devices elements
-float output[1000000];           // num_devices elements
-float ref_output[1000000]; // num_devices elements
+float* input_a;
+float* input_b;
+float* output;           // num_devices elements
+float* ref_output; // num_devices elements
 // scoped_array<unsigned> n_per_device;          // num_devices elements
 
 // Function prototypes
@@ -163,7 +164,10 @@ void init_problem()
     // of a total of N elements.
     // We create separate arrays for each device so that each device has an
     // aligned buffer.
-    input_a = malloc(N * sizeof(float));
+    input_a = (float*) malloc(N * sizeof(float));
+    input_b = (float*) malloc(N * sizeof(float));
+    output = (float*) malloc(N * sizeof(float));
+    ref_output = (float*) malloc(N * sizeof(float));
 
     for (unsigned i = 0; i < N; ++i)
     {
