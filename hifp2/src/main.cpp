@@ -153,7 +153,7 @@ int genfp(FILE *ifp, FILE *ofp)
     int r;
 
     short int wave16[NUMWAVE];
-    int dwt_eco[NUMDWTECO];
+    short int dwt_eco[NUMDWTECO];
     unsigned int fpid[NUMFRAME];
 
     memset(wave16, 0, sizeof(wave16));
@@ -377,7 +377,7 @@ void run()
     int r;
 
     short int wave16[NUMWAVE];
-    int dwt_eco[NUMDWTECO];
+    short int dwt_eco[NUMDWTECO];
     unsigned int fpid[NUMFRAME];
 
     memset(wave16, 0, sizeof(wave16));
@@ -442,7 +442,7 @@ void run()
         checkError(status, "Failed to launch kernel");
 
         // Read the result. This the final operation.
-        status = clEnqueueReadBuffer(queue, output_buf, CL_FALSE, 0, 1 * sizeof(int), &dwt_eco[0], 1, &kernel_event, &finish_event);
+        status = clEnqueueReadBuffer(queue, output_buf, CL_FALSE, 0, 1 * sizeof(short int), &dwt_eco[0], 1, &kernel_event, &finish_event);
 
         // Release local events.
         clReleaseEvent(write_event[0]);
