@@ -26,7 +26,6 @@ float* input_a;
 float* input_b;
 float* output;           
 float* ref_output; 
-// scoped_array<unsigned> n_per_device;          
 
 // Function prototypes
 float rand_float();
