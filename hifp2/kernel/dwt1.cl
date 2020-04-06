@@ -1,4 +1,4 @@
-__kernel void dwt1(__global const short int *wave16, int *dwt_eco1)
+__kernel void dwt1(__global const short int *wave16, __global int *dwt_eco1)
 {
     int dwt_eco1;
     int dwt_tmp[4];

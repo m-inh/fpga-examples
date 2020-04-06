@@ -442,7 +442,7 @@ void run()
         checkError(status, "Failed to launch kernel");
 
         // Read the result. This the final operation.
-        status = clEnqueueReadBuffer(queue, output_buf, CL_FALSE, 0, 1 * sizeof(int), dwt_eco[0], 1, &kernel_event, &finish_event);
+        status = clEnqueueReadBuffer(queue, output_buf, CL_FALSE, 0, 1 * sizeof(int), &dwt_eco[0], 1, &kernel_event, &finish_event);
 
         // Release local events.
         clReleaseEvent(write_event[0]);
