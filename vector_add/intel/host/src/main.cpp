@@ -39,18 +39,18 @@ void init_problem();
 void run();
 void cleanup();
 
-char* kernel_text = "__kernel void vector_add(
-    __global const float *x, 
-    __global const float *y,
-    __global float *restrict z
-    ) 
-{
-  // get index of the work item
-  int index = get_global_id(0);
+// char* kernel_text = "__kernel void vector_add(
+//     __global const float *x, 
+//     __global const float *y,
+//     __global float *restrict z
+//     ) 
+// {
+//   // get index of the work item
+//   int index = get_global_id(0);
 
-  // add the vector elements
-  z[index] = x[index] + y[index];
-}";
+//   // add the vector elements
+//   z[index] = x[index] + y[index];
+// }";
 
 // Entry point.
 int main(int argc, char **argv)
@@ -140,8 +140,8 @@ bool init_opencl()
     // Create the program for all device. Use the first device as the
     // representative device (assuming all device are of the same type).
     printf("Using kernel binary: %s\n", binary_file.c_str());
-    program = clCreateProgramWithSource(context, kernel_text, &device, 1);
-    // program = createProgramFromBinary(context, binary_file.c_str(), &device, 1);
+    // program = clCreateProgramWithSource(context, kernel_text, &device, 1);
+    program = createProgramFromBinary(context, binary_file.c_str(), &device, 1);
 
     // Build the program that was just created.
     status = clBuildProgram(program, 0, NULL, "", NULL, NULL);
