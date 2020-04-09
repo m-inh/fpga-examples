@@ -109,7 +109,7 @@ bool init_opencl()
     // }
 
     // Get the OpenCL platform.
-    platform = findPlatform("Apple");
+    platform = findPlatform("Intel");
     if (platform == NULL)
     {
         printf("ERROR: Unable to find Intel FPGA OpenCL platform.\n");
