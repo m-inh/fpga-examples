@@ -4,7 +4,12 @@
 #include <dirent.h>
 #include <errno.h>
 
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#else
 #include "CL/opencl.h"
+#endif
+
 #include "AOCLUtils/aocl_utils.h"
 
 using namespace aocl_utils;

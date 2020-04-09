@@ -10,12 +10,12 @@ ECHO := @
 endif
 
 # Where is the Intel(R) FPGA SDK for OpenCL(TM) software?
-ifeq ($(wildcard $(ALTERAOCLSDKROOT)),)
-$(error Set ALTERAOCLSDKROOT to the root directory of the Intel(R) FPGA SDK for OpenCL(TM) software installation)
-endif
-ifeq ($(wildcard $(ALTERAOCLSDKROOT)/host/include/CL/opencl.h),)
-$(error Set ALTERAOCLSDKROOT to the root directory of the Intel(R) FPGA SDK for OpenCL(TM) software installation.)
-endif
+# ifeq ($(wildcard $(ALTERAOCLSDKROOT)),)
+# $(error Set ALTERAOCLSDKROOT to the root directory of the Intel(R) FPGA SDK for OpenCL(TM) software installation)
+# endif
+# ifeq ($(wildcard $(ALTERAOCLSDKROOT)/host/include/CL/opencl.h),)
+# $(error Set ALTERAOCLSDKROOT to the root directory of the Intel(R) FPGA SDK for OpenCL(TM) software installation.)
+# endif
 
 # OpenCL compile and link flags.
 AOCL_COMPILE_CONFIG := $(shell aocl compile-config )
