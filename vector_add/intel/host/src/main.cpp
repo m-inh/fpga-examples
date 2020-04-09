@@ -102,11 +102,11 @@ bool init_opencl()
 
     printf("Initializing OpenCL\n");
 
-    // if (!setCwdToExeDir())
-    // {
-    //     printf("exit setCwdToExeDir() \n");
-    //     return false;
-    // }
+    if (!setCwdToExeDir())
+    {
+        printf("exit setCwdToExeDir() \n");
+        return false;
+    }
 
     // Get the OpenCL platform.
     platform = findPlatform("Intel");
