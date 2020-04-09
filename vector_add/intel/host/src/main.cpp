@@ -273,6 +273,11 @@ void run()
         clReleaseEvent(finish_event);
     }
 
+    for (unsigned j = 0; j < N; ++j)
+    {
+        printf("\n%f", output[j]);
+    }
+
     // Verify results.
     bool pass = true;
     {
@@ -285,6 +290,7 @@ void run()
             }
         }
     }
+    
 
     printf("\nVerification: %s\n", pass ? "PASS" : "FAIL");
 }
