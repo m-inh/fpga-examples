@@ -9,6 +9,82 @@
 
 #define MAX_SOURCE_SIZE (0x100000)
 
+bool fileExists(const char *file_name)
+{
+#ifdef _WIN32 // Windows
+    DWORD attrib = GetFileAttributesA(file_name);
+    return (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY));
+#else // Linux
+    return access(file_name, R_OK) != -1;
+#endif
+}
+
+// Loads a file in binary form.
+unsigned char *loadBinaryFile(const char *file_name, size_t *size)
+{
+    // Open the File
+    FILE *fp;
+
+    fp = fopen(file_name, "rb");
+    if (fp == 0)
+    {
+        return NULL;
+    }
+
+    // Get the size of the file
+    fseek(fp, 0, SEEK_END);
+    *size = ftell(fp);
+
+    // Allocate space for the binary
+    unsigned char *binary = new unsigned char[*size];
+
+    // Go back to the file start
+    rewind(fp);
+
+    // Read the file into the binary
+    if (fread((void *)binary, *size, 1, fp) == 0)
+    {
+        delete[] binary;
+        fclose(fp);
+        return NULL;
+    }
+
+    return binary;
+}
+
+// Create a program for all devices associated with the context.
+cl_program createProgramFromBinary(cl_context context, const char *binary_file_name, const cl_device_id device_id)
+{
+    // Early exit for potentially the most common way to fail: AOCX does not exist.
+    if (!fileExists(binary_file_name))
+    {
+        printf("Kernel file '%s' does not exist.\n", binary_file_name);
+    }
+
+    // Load the binary.
+    size_t binary_size;
+    unsigned char *binary(loadBinaryFile(binary_file_name, &binary_size));
+    if (binary == NULL)
+    {
+        printf("Failed to load binary file \n");
+    }
+
+    cl_int status;
+    cl_int binary_status;
+
+    cl_program program = clCreateProgramWithBinary(context,
+                                                   1,
+                                                   &device_id,
+                                                   &binary_size,
+                                                   (const unsigned char **)binary,
+                                                   &binary_status,
+                                                   &status);
+
+    return program;
+}
+
+//////////////////////////  main  ///////////////////////////////
+
 int main(void)
 {
     // Create the two input vectors
@@ -16,7 +92,7 @@ int main(void)
     const int LIST_SIZE = 1000000;
     int *A = (int *)malloc(sizeof(int) * LIST_SIZE);
     int *B = (int *)malloc(sizeof(int) * LIST_SIZE);
-    
+
     for (i = 0; i < LIST_SIZE; i++)
     {
         A[i] = 1023;
@@ -68,8 +144,15 @@ int main(void)
                                LIST_SIZE * sizeof(int), B, 0, NULL, NULL);
 
     // Create a program from the kernel source
+#ifdef __APPLE__
     cl_program program = clCreateProgramWithSource(context, 1,
-                                                   (const char **)&source_str, (const size_t *)&source_size, &ret);
+                                                   (const char **)&source_str,
+                                                   (const size_t *)&source_size,
+                                                   &ret);
+#else
+    char *binary_filename = "vector_add_kernel.aocx";
+    cl_program program = createProgramFromBinary(context, binary_filename, device_id);
+#endif
 
     // Build the program
     ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
