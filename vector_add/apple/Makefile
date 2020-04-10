@@ -25,6 +25,7 @@ FRAMEWORKS := OpenCL
 else
 AOCL_COMPILE_CONFIG := $(shell aocl compile-config)
 AOCL_LINK_CONFIG := $(shell aocl link-config)
+LIBS := rt pthread
 endif
 
 # Make it all!
