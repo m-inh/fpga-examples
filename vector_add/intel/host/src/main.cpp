@@ -12,25 +12,27 @@
 
 using namespace aocl_utils;
 
+#define MAX_SOURCE_SIZE (0x100000)
+
 // OpenCL runtime configuration
 std::string binary_file = "vector_add.aocx";
 cl_platform_id platform = NULL;
 unsigned num_devices = 0;
 cl_device_id device;
 cl_context context = NULL;
-cl_command_queue queue; 
+cl_command_queue queue;
 cl_program program = NULL;
-cl_kernel kernel; 
-cl_mem input_a_buf; 
-cl_mem input_b_buf; 
-cl_mem output_buf;  
+cl_kernel kernel;
+cl_mem input_a_buf;
+cl_mem input_b_buf;
+cl_mem output_buf;
 
 // Problem data.
 unsigned N = 1000000; // problem size
-float* input_a;
-float* input_b;
-float* output;           
-float* ref_output; 
+float *input_a;
+float *input_b;
+float *output;
+float *ref_output;
 
 // Function prototypes
 float rand_float();
@@ -38,19 +40,6 @@ bool init_opencl();
 void init_problem();
 void run();
 void cleanup();
-
-// char* kernel_text = "__kernel void vector_add(
-//     __global const float *x, 
-//     __global const float *y,
-//     __global float *restrict z
-//     ) 
-// {
-//   // get index of the work item
-//   int index = get_global_id(0);
-
-//   // add the vector elements
-//   z[index] = x[index] + y[index];
-// }";
 
 // Entry point.
 int main(int argc, char **argv)
@@ -102,17 +91,21 @@ bool init_opencl()
 
     printf("Initializing OpenCL\n");
 
+    // Get the OpenCL platform.
+#ifdef __APPLE__
+    platform = findPlatform("Apple");
+#else
     if (!setCwdToExeDir())
     {
         printf("exit setCwdToExeDir() \n");
         return false;
     }
 
-    // Get the OpenCL platform.
     platform = findPlatform("Intel");
+#endif
     if (platform == NULL)
     {
-        printf("ERROR: Unable to find Intel FPGA OpenCL platform.\n");
+        printf("ERROR: Unable to find platform.\n");
         return false;
     }
 
@@ -120,7 +113,7 @@ bool init_opencl()
     cl_device_id *devices = getDevices(platform, CL_DEVICE_TYPE_ALL, &num_devices);
 
     printf("Platform: %s\n", getPlatformName(platform).c_str());
-    
+
     printf("Found %d device(s)\n", num_devices);
     for (unsigned i = 0; i < num_devices; ++i)
     {
@@ -139,9 +132,28 @@ bool init_opencl()
 
     // Create the program for all device. Use the first device as the
     // representative device (assuming all device are of the same type).
+
+#ifdef __APPLE__
+    // Load the kernel source code into the array source_str
+    FILE *fp;
+    char *source_str;
+    size_t source_size;
+
+    fp = fopen("device/vector_add.cl", "r");
+    if (!fp)
+    {
+        fprintf(stderr, "Failed to load kernel.\n");
+        exit(1);
+    }
+    source_str = (char *)malloc(MAX_SOURCE_SIZE);
+    source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
+    fclose(fp);
+
+    program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &status);
+#else
     printf("Using kernel binary: %s\n", binary_file.c_str());
-    // program = clCreateProgramWithSource(context, kernel_text, &device, 1);
     program = createProgramFromBinary(context, binary_file.c_str(), &device, 1);
+#endif
 
     // Build the program that was just created.
     status = clBuildProgram(program, 0, NULL, "", NULL, NULL);
@@ -170,7 +182,6 @@ bool init_opencl()
     return true;
 }
 
-
 // Initialize the data for the problem. Requires num_devices to be known.
 void init_problem()
 {
@@ -183,10 +194,10 @@ void init_problem()
     // of a total of N elements.
     // We create separate arrays for each device so that each device has an
     // aligned buffer.
-    input_a = (float*) malloc(N * sizeof(float));
-    input_b = (float*) malloc(N * sizeof(float));
-    output = (float*) malloc(N * sizeof(float));
-    ref_output = (float*) malloc(N * sizeof(float));
+    input_a = (float *)malloc(N * sizeof(float));
+    input_b = (float *)malloc(N * sizeof(float));
+    output = (float *)malloc(N * sizeof(float));
+    ref_output = (float *)malloc(N * sizeof(float));
 
     for (unsigned i = 0; i < N; ++i)
     {
@@ -273,10 +284,10 @@ void run()
         clReleaseEvent(finish_event);
     }
 
-    for (unsigned j = 0; j < N; ++j)
-    {
-        printf("\n%f", output[j]);
-    }
+    // for (unsigned j = 0; j < N; ++j)
+    // {
+    //     printf("\n%f", output[j]);
+    // }
 
     // Verify results.
     bool pass = true;
@@ -290,7 +301,6 @@ void run()
             }
         }
     }
-    
 
     printf("\nVerification: %s\n", pass ? "PASS" : "FAIL");
 }
@@ -328,4 +338,3 @@ void cleanup()
         clReleaseContext(context);
     }
 }
-
