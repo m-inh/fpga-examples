@@ -4,8 +4,8 @@
 #include <dirent.h>
 #include <errno.h>
 
-const char *IDIR = "../distorted-wav";
-const char *ODIR = "../distorted-fp";
+const char *IDIR = "../../distorted-wav";
+const char *ODIR = "../../distorted-fp";
 
 typedef struct
 {
@@ -171,7 +171,7 @@ int genfp(FILE *ifp, FILE *ofp)
     // 	printf("%d ", fpid[i]);
     // }
 
-    int fpLength = sizeof fpid;
+    // int fpLength = sizeof fpid;
     // printf("-----%d---", fpLength);
     // printf("-----NUMFRAME: %d---", NUMFRAME);
 

@@ -18,8 +18,9 @@ endif
 # endif
 
 # OpenCL compile and link flags.
-AOCL_COMPILE_CONFIG := $(shell aocl compile-config )
-AOCL_LINK_CONFIG := $(shell aocl link-config )
+AOCL_COMPILE_CONFIG := 
+AOCL_LINK_CONFIG := 
+U_NAME := $(shell uname)
 
 # Compilation flags
 ifeq ($(DEBUG),1)
@@ -36,13 +37,22 @@ TARGET := host
 TARGET_DIR := bin
 
 # Directories
-INC_DIRS := ./common/inc
+INC_DIRS := ./host/common/inc
 LIB_DIRS := 
 
 # Files
 INCS := $(wildcard )
-SRCS := $(wildcard src/*.cpp common/src/AOCLUtils/*.cpp)
+SRCS := $(wildcard host/src/*.cpp host/common/src/AOCLUtils/*.cpp)
+LIBS :=
+FRAMEWORKS := 
+
+ifeq ($(U_NAME), Darwin)
+FRAMEWORKS := OpenCL
+else
+AOCL_COMPILE_CONFIG := $(shell aocl compile-config )
+AOCL_LINK_CONFIG := $(shell aocl link-config )
 LIBS := rt pthread
+endif
 
 # Make it all!
 all : $(TARGET_DIR)/$(TARGET)
@@ -50,10 +60,11 @@ all : $(TARGET_DIR)/$(TARGET)
 # Host executable target.
 $(TARGET_DIR)/$(TARGET) : Makefile $(SRCS) $(INCS) $(TARGET_DIR)
 	$(ECHO)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -fPIC $(foreach D,$(INC_DIRS),-I$D) \
-			$(AOCL_COMPILE_CONFIG) $(SRCS) $(AOCL_LINK_CONFIG) \
-			$(foreach D,$(LIB_DIRS),-L$D) \
-			$(foreach L,$(LIBS),-l$L) \
-			-o $(TARGET_DIR)/$(TARGET)
+		$(AOCL_COMPILE_CONFIG) $(SRCS) $(AOCL_LINK_CONFIG) \
+		$(foreach D,$(LIB_DIRS),-L$D) \
+		$(foreach L,$(LIBS),-l$L) \
+		$(foreach L,$(FRAMEWORKS),-framework $L) \
+		-o $(TARGET_DIR)/$(TARGET)
 
 $(TARGET_DIR) :
 	$(ECHO)mkdir $(TARGET_DIR)
