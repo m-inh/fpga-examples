@@ -3,7 +3,7 @@
 ## Compiling the OpenCL Kernel
 To compile the OpenCL kernel, run:
 ```
-aoc kernel/<kernel_name>.cl -o bin/<kernel_name>.aocx --board=<board>
+aoc device/<kernel_name>.cl -o bin/<kernel_name>.aocx --board=<board>
 ```
 The `-o bin/<kernel_name>.aocx` argument is used to place the compiled binary in the location that the host program expects.
 
@@ -14,7 +14,7 @@ aoc --list-boards
 
 Compiling for Emulator
 ```
-aoc -march=emulator kernel/<kernel_name>.cl -o bin/<kernel_name>.aocx
+aoc -march=emulator device/<kernel_name>.cl -o bin/<kernel_name>.aocx
 ```
 
 ## Compiling the Host Program

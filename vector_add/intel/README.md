@@ -12,7 +12,7 @@ The top-level OpenCL kernel file is device/vector_add.cl.
 
 To compile the OpenCL kernel, run:
 ```
-aoc device/vector_add.cl -o bin/vector_add.aocx --board=<board>
+aoc device/vector_add.cl -o bin/vector_add.aocx -board=<board>
 ```
 where <board> matches the board you want to target. The -o bin/vector_add.aocx argument is used to place the compiled binary in the location that the host program expects.
 
