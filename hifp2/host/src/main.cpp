@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 
     if (options.has("kernel"))
     {
-        binary_file = options.get<unsigned>("kernel");
+        binary_file = options.get<string>("kernel");
     }
 
     init_opencl();
