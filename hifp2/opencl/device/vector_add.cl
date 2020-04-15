@@ -5,8 +5,8 @@ __kernel void vector_add(
     ) 
 {
   // get index of the work item
-  int index = get_global_id(0);
+  int i = get_global_id(0);
 
   // add the vector elements
-  z[index] = x[index] + y[index];
+  z[i] = x[i] + y[i];
 }

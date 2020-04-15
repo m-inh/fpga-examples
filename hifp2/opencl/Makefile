@@ -9,14 +9,6 @@ else
 ECHO := @
 endif
 
-# Where is the Intel(R) FPGA SDK for OpenCL(TM) software?
-# ifeq ($(wildcard $(ALTERAOCLSDKROOT)),)
-# $(error Set ALTERAOCLSDKROOT to the root directory of the Intel(R) FPGA SDK for OpenCL(TM) software installation)
-# endif
-# ifeq ($(wildcard $(ALTERAOCLSDKROOT)/host/include/CL/opencl.h),)
-# $(error Set ALTERAOCLSDKROOT to the root directory of the Intel(R) FPGA SDK for OpenCL(TM) software installation.)
-# endif
-
 # OpenCL compile and link flags.
 AOCL_COMPILE_CONFIG := 
 AOCL_LINK_CONFIG := 
@@ -37,21 +29,31 @@ TARGET := host
 TARGET_DIR := bin
 
 # Directories
-INC_DIRS := ./host/common/inc
+INC_DIRS := ../common/inc
 LIB_DIRS := 
 
 # Files
 INCS := $(wildcard )
-SRCS := $(wildcard host/src/*.cpp host/common/src/AOCLUtils/*.cpp)
+SRCS := $(wildcard host/src/*.cpp ../common/src/AOCLUtils/*.cpp)
 LIBS :=
 FRAMEWORKS := 
 
 ifeq ($(U_NAME), Darwin)
 FRAMEWORKS := OpenCL
+
 else
+# Where is the Intel(R) FPGA SDK for OpenCL(TM) software?
+ifeq ($(wildcard $(ALTERAOCLSDKROOT)),)
+$(error Set ALTERAOCLSDKROOT to the root directory of the Intel(R) FPGA SDK for OpenCL(TM) software installation)
+endif
+ifeq ($(wildcard $(ALTERAOCLSDKROOT)/host/include/CL/opencl.h),)
+$(error Set ALTERAOCLSDKROOT to the root directory of the Intel(R) FPGA SDK for OpenCL(TM) software installation.)
+endif
+
 AOCL_COMPILE_CONFIG := $(shell aocl compile-config )
 AOCL_LINK_CONFIG := $(shell aocl link-config )
 LIBS := rt pthread
+
 endif
 
 # Make it all!

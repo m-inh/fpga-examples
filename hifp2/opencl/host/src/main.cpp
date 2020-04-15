@@ -1,6 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <errno.h>
+
+#include "hifp/hifp.h"
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -12,6 +18,7 @@
 
 using namespace std;
 using namespace aocl_utils;
+using namespace hifp;
 
 #define MAX_SOURCE_SIZE (0x100000)
 
@@ -24,6 +31,7 @@ cl_context context = NULL;
 cl_command_queue queue = NULL;
 cl_program program = NULL;
 cl_kernel kernel = NULL;
+
 cl_mem input_a_buf = NULL;
 cl_mem input_b_buf = NULL;
 cl_mem output_buf = NULL;
@@ -35,11 +43,15 @@ float *input_b;
 float *output;
 float *ref_output;
 
+const char *IDIR = "./distorted-wav";
+const char *ODIR = "./distorted-fp";
+
 // Function prototypes
 void init_opencl();
 void init_problem();
 void run();
 void cleanup();
+
 
 int main(int argc, char **argv)
 {
@@ -157,6 +169,7 @@ void init_opencl()
     checkError(status, "Failed to create buffer for output");
 }
 
+/* Load problem data here */
 void init_problem()
 {
     if (num_devices == 0)
@@ -184,74 +197,72 @@ void run()
     cl_event kernel_event;
     cl_event finish_event;
 
-    {
-        // Transfer inputs to each device. Each of the host buffers supplied to
-        // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
-        // for the host-to-device transfer.
-        cl_event write_event[2];
-        status = clEnqueueWriteBuffer(queue, input_a_buf, CL_FALSE, 0, N * sizeof(float), input_a, 0, NULL, &write_event[0]);
-        checkError(status, "Failed to transfer input A");
+    // Transfer inputs to each device. Each of the host buffers supplied to
+    // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
+    // for the host-to-device transfer.
+    cl_event write_event[2];
+    status = clEnqueueWriteBuffer(queue, input_a_buf, CL_FALSE, 0, N * sizeof(float), input_a, 0, NULL, &write_event[0]);
+    checkError(status, "Failed to transfer input A");
 
-        status = clEnqueueWriteBuffer(queue, input_b_buf, CL_FALSE, 0, N * sizeof(float), input_b, 0, NULL, &write_event[1]);
-        checkError(status, "Failed to transfer input B");
+    status = clEnqueueWriteBuffer(queue, input_b_buf, CL_FALSE, 0, N * sizeof(float), input_b, 0, NULL, &write_event[1]);
+    checkError(status, "Failed to transfer input B");
 
-        // Set kernel arguments.
-        unsigned argi = 0;
+    // Set kernel arguments.
+    unsigned argi = 0;
 
-        status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_a_buf);
-        checkError(status, "Failed to set argument %d", argi - 1);
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_a_buf);
+    checkError(status, "Failed to set argument %d", argi - 1);
 
-        status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_b_buf);
-        checkError(status, "Failed to set argument %d", argi - 1);
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_b_buf);
+    checkError(status, "Failed to set argument %d", argi - 1);
 
-        status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf);
-        checkError(status, "Failed to set argument %d", argi - 1);
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf);
+    checkError(status, "Failed to set argument %d", argi - 1);
 
-        /* 
-        Enqueue kernel.
-        Use a global work size corresponding to the number of elements to add
-        for this device.
-        
-        We don't specify a local work size and let the runtime choose
-        (it'll choose to use one work-group with the same size as the global
-        work-size).
-        
-        Events are used to ensure that the kernel is not launched until
-        the writes to the input buffers have completed. 
-        */
-        const cl_uint work_dim = 1;
-        const cl_uint num_events_in_wait_list = 2;
-        const size_t global_work_offset = 0;
-        const size_t global_work_size = N;
-        const size_t local_work_size = 0;
+    /* 
+    Enqueue kernel.
+    Use a global work size corresponding to the number of elements to add
+    for this device.
+    
+    We don't specify a local work size and let the runtime choose
+    (it'll choose to use one work-group with the same size as the global
+    work-size).
+    
+    Events are used to ensure that the kernel is not launched until
+    the writes to the input buffers have completed. 
+    */
+    const cl_uint work_dim = 1;
+    const cl_uint num_events_in_wait_list = 2;
+    const size_t global_work_offset = 0;
+    const size_t global_work_size = N;
+    const size_t local_work_size = 0;
 
-        printf("\n");
-        printf("Launching for device %d: \n");
-        printf("- work_dim: %zd \n", work_dim);
-        printf("- num_events_in_wait_list: %zd \n", num_events_in_wait_list);
-        printf("- global_work_offset: %zd \n", global_work_offset);
-        printf("- global_work_size: %zd \n", global_work_size);
-        printf("- local_work_size: %zd \n", local_work_size);
+    printf("\n");
+    printf("Launching for device %d: \n");
+    printf("- work_dim: %zd \n", work_dim);
+    printf("- num_events_in_wait_list: %zd \n", num_events_in_wait_list);
+    printf("- global_work_offset: %zd \n", global_work_offset);
+    printf("- global_work_size: %zd \n", global_work_size);
+    printf("- local_work_size: %zd \n", local_work_size);
 
-        status = clEnqueueNDRangeKernel(queue,
-                                        kernel,
-                                        work_dim,
-                                        global_work_offset == 0 ? NULL : &global_work_offset,
-                                        global_work_size == 0 ? NULL : &global_work_size,
-                                        local_work_size == 0 ? NULL : &local_work_size,
-                                        num_events_in_wait_list,
-                                        write_event,
-                                        &kernel_event);
+    status = clEnqueueNDRangeKernel(queue,
+                                    kernel,
+                                    work_dim,
+                                    global_work_offset == 0 ? NULL : &global_work_offset,
+                                    global_work_size == 0 ? NULL : &global_work_size,
+                                    local_work_size == 0 ? NULL : &local_work_size,
+                                    num_events_in_wait_list,
+                                    write_event,
+                                    &kernel_event);
 
-        checkError(status, "Failed to launch kernel");
+    checkError(status, "Failed to launch kernel");
 
-        // Read the result. This the final operation.
-        status = clEnqueueReadBuffer(queue, output_buf, CL_FALSE, 0, N * sizeof(float), output, 1, &kernel_event, &finish_event);
+    // Read the result. This the final operation.
+    status = clEnqueueReadBuffer(queue, output_buf, CL_FALSE, 0, N * sizeof(float), output, 1, &kernel_event, &finish_event);
 
-        // Release local events.
-        clReleaseEvent(write_event[0]);
-        clReleaseEvent(write_event[1]);
-    }
+    // Release local events.
+    clReleaseEvent(write_event[0]);
+    clReleaseEvent(write_event[1]);
 
     // Wait for all devices to finish.
     clWaitForEvents(1, &finish_event);
