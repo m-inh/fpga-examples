@@ -1,6 +1,10 @@
 #ifndef HIFP_H
 #define HIFP_H
 
+#define NUM_WAVE 131072; /* Number of samples of PCM data */
+#define NUM_DWT_ECO 4096; /* Number of bits per FPIDs */
+#define NUM_FRAME 128;   /* Number of frames of generated FPID data */
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -63,9 +67,9 @@ WAVEHEADER read_wave_header(FILE *ifp);
 int read_wav_data(FILE *ifp, short int *wav_data, WAVEHEADER wave_header);
 int gen_fpid(short int *wave16, unsigned int *fpid);
 int save_fp_to_disk(FILE *ofp, unsigned int *fpid);
-void verify_fpid(unsigned int *fpid, const unsigned int *ref_fpid);
+void verify_fpid(unsigned int *fpid);
 int run_all(FILE *ifp, FILE *ofp);
-
+unsigned int * get_ref_fpid();
 
 } // namespace hifp
 

@@ -1,3 +1,5 @@
+#define MAX_SOURCE_SIZE (0x100000)
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -6,8 +8,6 @@
 #include <dirent.h>
 #include <errno.h>
 
-#include "hifp/hifp.h"
-
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
 #else
@@ -15,15 +15,16 @@
 #endif
 
 #include "AOCLUtils/aocl_utils.h"
+#include "hifp/hifp.h"
+#include "utils/utils.h"
 
 using namespace std;
 using namespace aocl_utils;
 using namespace hifp;
-
-#define MAX_SOURCE_SIZE (0x100000)
+using namespace my_utils;
 
 // OpenCL runtime configuration
-string binary_file = "vector_add.aocx";
+string binary_file = "hifp.aocx";
 cl_platform_id platform = NULL;
 unsigned num_devices = 0;
 cl_device_id device = NULL;
@@ -32,23 +33,21 @@ cl_command_queue queue = NULL;
 cl_program program = NULL;
 cl_kernel kernel = NULL;
 
-cl_mem input_a_buf = NULL;
-cl_mem input_b_buf = NULL;
-cl_mem output_buf = NULL;
+cl_mem input_buf = NULL;
+cl_mem output_buf_1 = NULL;
+cl_mem output_buf_2 = NULL;
 
 // Problem data
-unsigned N = 1000000;
-float *input_a;
-float *input_b;
-float *output;
-float *ref_output;
-
-const char *IDIR = "./distorted-wav";
+const char *IDIR = "../distorted-wav";
 const char *ODIR = "./distorted-fp";
+
+const int NUMWAVE = NUM_WAVE;
+const int NUMDWTECO = NUM_DWT_ECO;
+const int NUMFRAME = NUM_FRAME;
 
 // Function prototypes
 void init_opencl();
-void init_problem();
+int init_problem();
 void run();
 void cleanup();
 
@@ -56,11 +55,6 @@ void cleanup();
 int main(int argc, char **argv)
 {
     Options options(argc, argv);
-
-    if (options.has("n"))
-    {
-        N = options.get<unsigned>("n");
-    }
 
     if (options.has("kernel"))
     {
@@ -129,7 +123,7 @@ void init_opencl()
     char *source_str;
     size_t source_size;
 
-    fp = fopen("device/vector_add.cl", "r");
+    fp = fopen("device/hifp.cl", "r");
     if (!fp)
     {
         checkError(-1, "Failed to load kernel");
@@ -153,41 +147,77 @@ void init_opencl()
     checkError(status, "Failed to create command queue");
 
     // Kernel.
-    const char *kernel_name = "vector_add";
+    const char *kernel_name = "hifp2";
     kernel = clCreateKernel(program, kernel_name, &status);
     checkError(status, "Failed to create kernel");
 
     // Input buffers.
-    input_a_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, N * sizeof(float), NULL, &status);
-    checkError(status, "Failed to create buffer for input A");
-
-    input_b_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, N * sizeof(float), NULL, &status);
-    checkError(status, "Failed to create buffer for input B");
+    // input_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, NUMWAVE * sizeof(short int), NULL, &status);
+    // checkError(status, "Failed to create buffer for input");
 
     // Output buffer.
-    output_buf = clCreateBuffer(context, CL_MEM_WRITE_ONLY, N * sizeof(float), NULL, &status);
-    checkError(status, "Failed to create buffer for output");
+    // output_buf_1 = clCreateBuffer(context, CL_MEM_WRITE_ONLY, NUMFRAME * sizeof(unsigned int), NULL, &status);
+    // checkError(status, "Failed to create buffer for output 1");
+
+    // output_buf_2 = clCreateBuffer(context, CL_MEM_WRITE_ONLY, NUMFRAME * sizeof(unsigned int), NULL, &status);
+    // checkError(status, "Failed to create buffer for output 2");
 }
 
+
+DIR *dir = NULL;
+struct dirent *ep;
+char ifpath[256];
+char ofpath[256];
+FILE *ifp = NULL;
+FILE *ofp = NULL;
+
+short int wave16[NUMWAVE];
+unsigned int fpid[NUMFRAME];
+unsigned int plain_fpid[NUMDWTECO];
+
 /* Load problem data here */
-void init_problem()
+int init_problem()
 {
     if (num_devices == 0)
     {
         checkError(-1, "No devices");
     }
 
-    input_a = (float *)malloc(N * sizeof(float));
-    input_b = (float *)malloc(N * sizeof(float));
-    output = (float *)malloc(N * sizeof(float));
-    ref_output = (float *)malloc(N * sizeof(float));
+    dir = opendir(IDIR);
+    ASSERT(dir != NULL);
 
-    for (unsigned i = 0; i < N; ++i)
+    while ((ep = readdir(dir)) != NULL)
     {
-        input_a[i] = 1023;
-        input_b[i] = 1.0;
-        ref_output[i] = input_a[i] + input_b[i];
+        if (ep->d_type == DT_REG)
+        {
+            sprintf(ifpath, "%s/%s", IDIR, ep->d_name);
+            sprintf(ofpath, "%s/%s.raw", ODIR, ep->d_name);
+
+            ifp = fopen(ifpath, "rb+");
+            ASSERT(ifp != NULL);
+
+            ofp = fopen(ofpath, "wb");
+            ASSERT(ifp != NULL);
+        }
     }
+
+    /* Load 1 wav */
+    WAVEHEADER wave_header;
+
+    /* initialize all array elements to zero */
+    memset(wave16, 0, sizeof(wave16));
+    memset(fpid, 0, sizeof(fpid));
+    memset(plain_fpid, 0, sizeof(plain_fpid));
+
+    /* Load data */
+    wave_header = read_wave_header(ifp);
+    read_wav_data(ifp, wave16, wave_header);
+
+    return 0;
+
+err:
+    closedir(dir);
+    return -1;
 }
 
 void run()
@@ -195,28 +225,39 @@ void run()
     const double start_time = getCurrentTimestamp();
     cl_int status;
     cl_event kernel_event;
-    cl_event finish_event;
+    cl_event finish_event[2];
+
+    /* Create buffer */
+    // Input buffers.
+    input_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, NUMWAVE * sizeof(short int), NULL, &status);
+    checkError(status, "Failed to create buffer for input");
+
+    // Output buffer.
+    output_buf_1 = clCreateBuffer(context, CL_MEM_WRITE_ONLY, NUMFRAME * sizeof(unsigned int), NULL, &status);
+    checkError(status, "Failed to create buffer for output 1 - fpid");
+
+    output_buf_2 = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMDWTECO * sizeof(unsigned int), NULL, &status);
+    checkError(status, "Failed to create buffer for output 2 - plain_fpid");
+
 
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
-    cl_event write_event[2];
-    status = clEnqueueWriteBuffer(queue, input_a_buf, CL_FALSE, 0, N * sizeof(float), input_a, 0, NULL, &write_event[0]);
-    checkError(status, "Failed to transfer input A");
+    cl_event write_event[1];
 
-    status = clEnqueueWriteBuffer(queue, input_b_buf, CL_FALSE, 0, N * sizeof(float), input_b, 0, NULL, &write_event[1]);
-    checkError(status, "Failed to transfer input B");
+    status = clEnqueueWriteBuffer(queue, input_buf, CL_FALSE, 0, NUMWAVE * sizeof(short int), wave16, 0, NULL, &write_event[0]);
+    checkError(status, "Failed to transfer input wav");
 
     // Set kernel arguments.
     unsigned argi = 0;
 
-    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_a_buf);
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_buf);
     checkError(status, "Failed to set argument %d", argi - 1);
 
-    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_b_buf);
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf_1);
     checkError(status, "Failed to set argument %d", argi - 1);
 
-    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf);
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf_2);
     checkError(status, "Failed to set argument %d", argi - 1);
 
     /* 
@@ -232,18 +273,18 @@ void run()
     the writes to the input buffers have completed. 
     */
     const cl_uint work_dim = 1;
-    const cl_uint num_events_in_wait_list = 2;
+    const cl_uint num_events_in_wait_list = 1;
     const size_t global_work_offset = 0;
-    const size_t global_work_size = N;
+    const size_t global_work_size = NUMFRAME;
     const size_t local_work_size = 0;
 
     printf("\n");
-    printf("Launching for device %d: \n");
-    printf("- work_dim: %zd \n", work_dim);
-    printf("- num_events_in_wait_list: %zd \n", num_events_in_wait_list);
-    printf("- global_work_offset: %zd \n", global_work_offset);
-    printf("- global_work_size: %zd \n", global_work_size);
-    printf("- local_work_size: %zd \n", local_work_size);
+    printf("Launching for device %u: \n", device);
+    printf("- work_dim: %u \n", work_dim);
+    printf("- num_events_in_wait_list: %u \n", num_events_in_wait_list);
+    printf("- global_work_offset: %lu \n", global_work_offset);
+    printf("- global_work_size: %lu \n", global_work_size);
+    printf("- local_work_size: %lu \n", local_work_size);
 
     status = clEnqueueNDRangeKernel(queue,
                                     kernel,
@@ -258,14 +299,14 @@ void run()
     checkError(status, "Failed to launch kernel");
 
     // Read the result. This the final operation.
-    status = clEnqueueReadBuffer(queue, output_buf, CL_FALSE, 0, N * sizeof(float), output, 1, &kernel_event, &finish_event);
+    status = clEnqueueReadBuffer(queue, output_buf_1, CL_FALSE, 0, NUMFRAME * sizeof(unsigned int), fpid, 1, &kernel_event, &finish_event[0]);
+    status = clEnqueueReadBuffer(queue, output_buf_2, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), plain_fpid, 1, &kernel_event, &finish_event[1]);
 
     // Release local events.
     clReleaseEvent(write_event[0]);
-    clReleaseEvent(write_event[1]);
 
     // Wait for all devices to finish.
-    clWaitForEvents(1, &finish_event);
+    clWaitForEvents(2, finish_event);
 
     const double end_time = getCurrentTimestamp();
 
@@ -276,30 +317,22 @@ void run()
     // Get kernel times using the OpenCL event profiling API.
     {
         cl_ulong time_ns = getStartEndTime(kernel_event);
-        printf("Kernel time: %0.3f ms \n", device, double(time_ns) * 1e-6);
+        printf("Kernel time (%d): %0.3f ms \n", device, double(time_ns) * 1e-6);
     }
 
     // Release all events.
     {
         clReleaseEvent(kernel_event);
-        clReleaseEvent(finish_event);
+        clReleaseEvent(finish_event[0]);
+        clReleaseEvent(finish_event[1]);
     }
 
-    // Verify results.
-    bool pass = true;
-    {
-        for (unsigned j = 0; j < N && pass; ++j)
-        {
-            if (fabsf(output[j] - ref_output[j]) > 1.0e-5f)
-            {
-                printf("Failed verification @ device %d, index %d\nOutput: %f\nReference: %f\n", device, j, output[j], ref_output[j]);
-                pass = false;
-            }
-        }
-    }
+    printf("\n plain_fpid \n");
+    print_array((int *) plain_fpid, NUMDWTECO);
 
-    printf("\n");
-    printf("Verification: %s\n", pass ? "PASS" : "FAIL");
+    // TODO: Verify results.
+    verify_fpid(fpid);
+    save_fp_to_disk(ofp, fpid);
 }
 
 // Free the resources allocated during initialization
@@ -323,16 +356,27 @@ void cleanup()
     }
 
     // Free problem data
-    if (input_a_buf)
+    if (input_buf)
     {
-        clReleaseMemObject(input_a_buf);
+        clReleaseMemObject(input_buf);
     }
-    if (input_b_buf)
+    if (output_buf_1)
     {
-        clReleaseMemObject(input_b_buf);
+        clReleaseMemObject(output_buf_1);
     }
-    if (output_buf)
+    if (output_buf_2)
     {
-        clReleaseMemObject(output_buf);
+        clReleaseMemObject(output_buf_2);
+    }
+    if (dir) {
+        closedir(dir);
+    }
+    if (ifp) {
+        fclose(ifp);
+        ifp = NULL;
+    }
+    if (ofp) {
+        fclose(ofp);
+        ofp = NULL;
     }
 }

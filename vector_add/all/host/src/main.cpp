@@ -29,7 +29,7 @@ cl_mem input_b_buf = NULL;
 cl_mem output_buf = NULL;
 
 // Problem data
-unsigned N = 1000000;
+unsigned int N = 1000000;
 float *input_a;
 float *input_b;
 float *output;

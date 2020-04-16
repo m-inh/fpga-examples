@@ -34,7 +34,7 @@ LIB_DIRS :=
 
 # Files
 INCS := $(wildcard )
-SRCS := $(wildcard host/src/*.cpp ../common/src/AOCLUtils/*.cpp)
+SRCS := $(wildcard host/src/*.cpp ../common/src/AOCLUtils/*.cpp ../common/src/hifp/*.cpp ../common/src/utils/*.cpp)
 LIBS :=
 FRAMEWORKS := 
 
