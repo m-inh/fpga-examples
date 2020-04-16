@@ -1,5 +1,11 @@
 #define MAX_SOURCE_SIZE (0x100000)
 
+#ifdef __APPLE__
+#define I_DIR "../distorted-wav"
+#else
+#define I_DIR "../../distorted-wav"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -38,7 +44,7 @@ cl_mem output_buf_1 = NULL;
 cl_mem output_buf_2 = NULL;
 
 // Problem data
-const char *IDIR = "../distorted-wav";
+const char *IDIR = I_DIR;
 const char *ODIR = "./distorted-fp";
 
 const int NUMWAVE = NUM_WAVE;
