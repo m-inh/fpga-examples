@@ -11,36 +11,42 @@ __kernel void hifp2(
 ) 
 {
     int g_id = get_global_id(0);
+
     int dwt_offset = g_id * 32;
+    int dwt_index = 0;
 
     int dwt_tmp[4];
 
-    int wave_offset;
-    int i;
+    int wave_offset = g_id * 1024;
+    int wave_index = 0;
+    int i, j;
 
     /* 3-stages HAAR wavelet transform */
     for (i=0; i<32; i++) {
-        wave_offset = g_id * i * 32;
+        dwt_index = dwt_offset + i;
 
-        /* 1st round */
-        dwt_tmp[0] = (wave16[wave_offset] + wave16[wave_offset + 1]) / 2;
-        dwt_tmp[1] = (wave16[wave_offset + 2] + wave16[wave_offset + 3]) / 2;
-        dwt_tmp[2] = (wave16[wave_offset + 4] + wave16[wave_offset + 5]) / 2;
-        dwt_tmp[3] = (wave16[wave_offset + 6] + wave16[wave_offset+ 7]) / 2;
+        for (j=0; j<32; j++) {
+            wave_index = wave_offset + (j * 32);
 
-        /* 2nd round */
-        dwt_tmp[0] = (dwt_tmp[0] + dwt_tmp[1]) / 2;
-        dwt_tmp[1] = (dwt_tmp[2] + dwt_tmp[3]) / 2;
+            /* 1st round */
+            dwt_tmp[0] = (wave16[wave_index] + wave16[wave_index + 1]) / 2;
+            dwt_tmp[1] = (wave16[wave_index + 2] + wave16[wave_index + 3]) / 2;
+            dwt_tmp[2] = (wave16[wave_index + 4] + wave16[wave_index + 5]) / 2;
+            dwt_tmp[3] = (wave16[wave_index + 6] + wave16[wave_index+ 7]) / 2;
 
-        /* 3rd round */
-        dwt_tmp[0] = (dwt_tmp[0] + dwt_tmp[1]) / 2;
+            /* 2nd round */
+            dwt_tmp[0] = (dwt_tmp[0] + dwt_tmp[1]) / 2;
+            dwt_tmp[1] = (dwt_tmp[2] + dwt_tmp[3]) / 2;
 
-        dwt[dwt_offset + i] = dwt_tmp[0];
+            /* 3rd round */
+            dwt_tmp[0] = (dwt_tmp[0] + dwt_tmp[1]) / 2;
+        }
+
+        dwt[dwt_index] = dwt_tmp[0];
     }
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
-    int dwt_index = 0;
     unsigned int local_orientations[32];
 
     /* Generate plain FPID */
@@ -57,8 +63,6 @@ __kernel void hifp2(
             local_orientations[i] = 0;
         }
     }
-
-    barrier(CLK_GLOBAL_MEM_FENCE);
 
     for (i=0; i<32; i++) {
         plain_fpid[dwt_offset + i] = local_orientations[i];
