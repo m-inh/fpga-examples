@@ -42,6 +42,7 @@ cl_kernel kernel = NULL;
 cl_mem input_buf = NULL;
 cl_mem output_buf_1 = NULL;
 cl_mem output_buf_2 = NULL;
+cl_mem output_buf_3 = NULL;
 
 // Problem data
 const char *IDIR = I_DIR;
@@ -180,6 +181,7 @@ FILE *ofp = NULL;
 short int wave16[NUMWAVE];
 unsigned int fpid[NUMFRAME];
 unsigned int plain_fpid[NUMDWTECO];
+unsigned int dwt[NUMDWTECO];
 
 /* Load problem data here */
 int init_problem()
@@ -214,6 +216,7 @@ int init_problem()
     memset(wave16, 0, sizeof(wave16));
     memset(fpid, 0, sizeof(fpid));
     memset(plain_fpid, 0, sizeof(plain_fpid));
+    memset(dwt, 0, sizeof(dwt));
 
     /* Load data */
     wave_header = read_wave_header(ifp);
@@ -231,7 +234,7 @@ void run()
     const double start_time = getCurrentTimestamp();
     cl_int status;
     cl_event kernel_event;
-    cl_event finish_event[2];
+    cl_event finish_event[3];
 
     /* Create buffer */
     // Input buffers.
@@ -244,6 +247,9 @@ void run()
 
     output_buf_2 = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMDWTECO * sizeof(unsigned int), NULL, &status);
     checkError(status, "Failed to create buffer for output 2 - plain_fpid");
+
+    output_buf_3 = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMDWTECO * sizeof(unsigned int), NULL, &status);
+    checkError(status, "Failed to create buffer for output 3 - dwt");
 
 
     // Transfer inputs to each device. Each of the host buffers supplied to
@@ -264,6 +270,9 @@ void run()
     checkError(status, "Failed to set argument %d", argi - 1);
 
     status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf_2);
+    checkError(status, "Failed to set argument %d", argi - 1);
+
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf_3);
     checkError(status, "Failed to set argument %d", argi - 1);
 
     /* 
@@ -307,12 +316,13 @@ void run()
     // Read the result. This the final operation.
     status = clEnqueueReadBuffer(queue, output_buf_1, CL_FALSE, 0, NUMFRAME * sizeof(unsigned int), fpid, 1, &kernel_event, &finish_event[0]);
     status = clEnqueueReadBuffer(queue, output_buf_2, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), plain_fpid, 1, &kernel_event, &finish_event[1]);
+    status = clEnqueueReadBuffer(queue, output_buf_3, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), dwt, 1, &kernel_event, &finish_event[2]);
 
     // Release local events.
     clReleaseEvent(write_event[0]);
 
     // Wait for all devices to finish.
-    clWaitForEvents(2, finish_event);
+    clWaitForEvents(3, finish_event);
 
     const double end_time = getCurrentTimestamp();
 
@@ -331,6 +341,7 @@ void run()
         clReleaseEvent(kernel_event);
         clReleaseEvent(finish_event[0]);
         clReleaseEvent(finish_event[1]);
+        clReleaseEvent(finish_event[2]);
     }
 
     printf("\n plain_fpid \n");
@@ -373,6 +384,10 @@ void cleanup()
     if (output_buf_2)
     {
         clReleaseMemObject(output_buf_2);
+    }
+    if (output_buf_3)
+    {
+        clReleaseMemObject(output_buf_3);
     }
     if (dir) {
         closedir(dir);
