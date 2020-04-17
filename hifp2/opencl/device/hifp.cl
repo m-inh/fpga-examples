@@ -80,10 +80,7 @@ __kernel void hifp2(
         plain_fpid_index = dwt_offset + i;
         
         if (plain_fpid_index < NUMDWTECO - 1) {
-            if (plain_fpid[plain_fpid_index] > plain_fpid[plain_fpid_index + 1])
-            {
-                temp_fpid |= 1;
-            }
+            temp_fpid |= plain_fpid[plain_fpid_index];
         }
     }
 
