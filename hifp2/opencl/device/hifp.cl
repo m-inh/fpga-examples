@@ -73,12 +73,9 @@ __kernel void hifp2(
 
     for (i = 0; i < 32; i++)
     {   
-        temp_fpid <<= 1;
         dwt_index = dwt_offset + i;
-        
-        if (dwt_index < NUMDWTECO - 1) {
-            temp_fpid |= plain_fpid[dwt_index];
-        }
+        temp_fpid <<= 1;
+        temp_fpid |= plain_fpid[dwt_index];
     }
 
     fpid[g_id] = temp_fpid;
