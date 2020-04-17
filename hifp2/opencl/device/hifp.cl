@@ -60,6 +60,12 @@ __kernel void hifp2(
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
+    for (i=0; i<32; i++) {
+        plain_fpid[dwt_offset + i] = local_orientations[i];
+    }
+
+    barrier(CLK_GLOBAL_MEM_FENCE);
+
     /* Compress plain FPID */
     unsigned int temp_fpid = 0;
     int plain_fpid_index = 0;
@@ -78,4 +84,5 @@ __kernel void hifp2(
     }
 
     fpid[g_id] = temp_fpid;
+    
 }
