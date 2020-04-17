@@ -4,10 +4,10 @@
 
 
 __kernel void hifp2(
-    __global const short int * wave16,
-    __global unsigned int * fpid,
-    __global unsigned int * plain_fpid,
-    __global unsigned int * dwt
+    __global const short int *  wave16,
+    __global unsigned int *     fpid,
+    __global unsigned int *     plain_fpid,
+    __global unsigned int *     dwt
 ) 
 {
     int g_id = get_global_id(0);
@@ -47,7 +47,7 @@ __kernel void hifp2(
     for (i=0; i<32; i++) {
         dwt_index = dwt_offset + i;
         
-        if (dwt_index + 1 < NUMDWTECO) {
+        if (dwt_index < NUMDWTECO - 1) {
             if (dwt[dwt_index] < dwt[dwt_index + 1]) {
                 local_orientations[i] = 1;
             } else {
@@ -56,12 +56,6 @@ __kernel void hifp2(
         } else {
             local_orientations[i] = 0;
         }
-    }
-
-    barrier(CLK_GLOBAL_MEM_FENCE);
-
-    for (i=0; i<32; i++) {
-        plain_fpid[dwt_offset + i] = local_orientations[i];
     }
 
     barrier(CLK_GLOBAL_MEM_FENCE);
@@ -84,5 +78,4 @@ __kernel void hifp2(
     }
 
     fpid[g_id] = temp_fpid;
-    
 }
