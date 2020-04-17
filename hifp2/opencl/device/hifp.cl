@@ -24,7 +24,6 @@ __kernel void hifp2(
     /* 3-stages HAAR wavelet transform */
     for (i=0; i<32; i++) {
         dwt_index = dwt_offset + i;
-
         wave_index = wave_offset + (i * 32);
 
         /* 1st round */
@@ -63,22 +62,22 @@ __kernel void hifp2(
     }
 
     for (i=0; i<32; i++) {
-        plain_fpid[dwt_offset + i] = local_orientations[i];
+        dwt_index = dwt_offset + i;
+        plain_fpid[dwt_index] = local_orientations[i];
     }
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
     /* Compress plain FPID */
     unsigned int temp_fpid = 0;
-    int plain_fpid_index = 0;
 
     for (i = 0; i < 32; i++)
     {   
         temp_fpid <<= 1;
-        plain_fpid_index = dwt_offset + i;
+        dwt_index = dwt_offset + i;
         
-        if (plain_fpid_index < NUMDWTECO - 1) {
-            temp_fpid |= plain_fpid[plain_fpid_index];
+        if (dwt_index < NUMDWTECO - 1) {
+            temp_fpid |= plain_fpid[dwt_index];
         }
     }
 
