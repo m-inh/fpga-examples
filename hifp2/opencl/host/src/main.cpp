@@ -344,11 +344,13 @@ void run()
         clReleaseEvent(finish_event[2]);
     }
 
-    printf("\n plain_fpid \n");
-    print_array((int *) plain_fpid, NUMDWTECO);
+    printf("\nplain_fpid:");
+    print_array(plain_fpid, NUMDWTECO);
 
-    // TODO: Verify results.
+    /* Verify result */
     verify_fpid(fpid);
+
+    /* Save FPID to disk */
     save_fp_to_disk(ofp, fpid);
 }
 
@@ -371,8 +373,6 @@ void cleanup()
     {
         clReleaseContext(context);
     }
-
-    // Free problem data
     if (input_buf)
     {
         clReleaseMemObject(input_buf);
@@ -389,6 +389,8 @@ void cleanup()
     {
         clReleaseMemObject(output_buf_3);
     }
+
+    // Free problem data
     if (dir) {
         closedir(dir);
     }
