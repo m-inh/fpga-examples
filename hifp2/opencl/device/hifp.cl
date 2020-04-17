@@ -19,7 +19,7 @@ __kernel void hifp2(
 
     int wave_offset = g_id * 1024;
     int wave_index = 0;
-    int i, j;
+    int i;
 
     /* 3-stages HAAR wavelet transform */
     for (i=0; i<32; i++) {
@@ -51,7 +51,7 @@ __kernel void hifp2(
         dwt_index = dwt_offset + i;
         
         if (dwt_index < NUMDWTECO - 1) {
-            if (dwt[dwt_index] < dwt[dwt_index + 1]) {
+            if (dwt[dwt_index] > dwt[dwt_index + 1]) {
                 local_orientations[i] = 1;
             } else {
                 local_orientations[i] = 0;
