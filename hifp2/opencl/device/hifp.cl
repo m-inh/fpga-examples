@@ -25,22 +25,20 @@ __kernel void hifp2(
     for (i=0; i<32; i++) {
         dwt_index = dwt_offset + i;
 
-        for (j=0; j<32; j++) {
-            wave_index = wave_offset + (j * 32);
+        wave_index = wave_offset + (i * 32);
 
-            /* 1st round */
-            dwt_tmp[0] = (wave16[wave_index] + wave16[wave_index + 1]) / 2;
-            dwt_tmp[1] = (wave16[wave_index + 2] + wave16[wave_index + 3]) / 2;
-            dwt_tmp[2] = (wave16[wave_index + 4] + wave16[wave_index + 5]) / 2;
-            dwt_tmp[3] = (wave16[wave_index + 6] + wave16[wave_index+ 7]) / 2;
+        /* 1st round */
+        dwt_tmp[0] = (wave16[wave_index] + wave16[wave_index + 1]) / 2;
+        dwt_tmp[1] = (wave16[wave_index + 2] + wave16[wave_index + 3]) / 2;
+        dwt_tmp[2] = (wave16[wave_index + 4] + wave16[wave_index + 5]) / 2;
+        dwt_tmp[3] = (wave16[wave_index + 6] + wave16[wave_index+ 7]) / 2;
 
-            /* 2nd round */
-            dwt_tmp[0] = (dwt_tmp[0] + dwt_tmp[1]) / 2;
-            dwt_tmp[1] = (dwt_tmp[2] + dwt_tmp[3]) / 2;
+        /* 2nd round */
+        dwt_tmp[0] = (dwt_tmp[0] + dwt_tmp[1]) / 2;
+        dwt_tmp[1] = (dwt_tmp[2] + dwt_tmp[3]) / 2;
 
-            /* 3rd round */
-            dwt_tmp[0] = (dwt_tmp[0] + dwt_tmp[1]) / 2;
-        }
+        /* 3rd round */
+        dwt_tmp[0] = (dwt_tmp[0] + dwt_tmp[1]) / 2;
 
         dwt[dwt_index] = dwt_tmp[0];
     }
