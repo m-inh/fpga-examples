@@ -347,8 +347,8 @@ void run()
     printf("\nplain_fpid:");
     print_array(plain_fpid, NUMDWTECO);
 
-    printf("\ndwt:");
-    print_array(dwt, NUMDWTECO);
+    // printf("\ndwt:");
+    // print_array(dwt, NUMDWTECO);
 
     /* Verify result */
     verify_fpid(fpid);
