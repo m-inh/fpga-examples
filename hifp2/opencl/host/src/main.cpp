@@ -344,14 +344,14 @@ void run()
         clReleaseEvent(finish_event[2]);
     }
 
-    printf("\nplain_fpid:");
-    print_array(plain_fpid, NUMDWTECO);
+    // printf("\nplain_fpid:");
+    // print_array(plain_fpid, NUMDWTECO);
 
     // printf("\ndwt:");
     // print_array(dwt, NUMDWTECO);
 
     /* Verify result */
-    verify_fpid(fpid);
+    verify_fpid(fpid, plain_fpid, dwt);
 
     /* Save FPID to disk */
     save_fp_to_disk(ofp, fpid);

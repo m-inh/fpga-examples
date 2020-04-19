@@ -35,7 +35,11 @@ int dwt1(short int *wave16)
     return dwt_eco1;
 }
 
-int readwav8(FILE *fp, short int *wave16, unsigned short int numch)
+int readwav8(
+    FILE * fp, 
+    short int * wave16, 
+    unsigned short int numch
+)
 {
     short int buf[16];
     short int dum[48];
@@ -110,7 +114,12 @@ err:
     return -1;
 }
 
-int gen_fpid(short int *wave16, unsigned int *plain_fpid, unsigned int *fpid, unsigned int *dwt_eco)
+int gen_fpid(
+    short int *    wave16, 
+    unsigned int * plain_fpid, 
+    unsigned int * fpid, 
+    unsigned int * dwt_eco
+)
 {
     dwt_eco[0] = dwt1(&wave16[0]);
 
@@ -138,7 +147,10 @@ err:
     return -1;
 }
 
-int save_fp_to_disk(FILE *ofp, unsigned int *fpid)
+int save_fp_to_disk(
+    FILE *ofp, 
+    unsigned int *fpid
+)
 {
     size_t wsz;
 
@@ -151,7 +163,11 @@ err:
     return -1;
 }
 
-void verify_fpid(unsigned int *fpid, unsigned int *plain_fpid, unsigned int *dwt_eco)
+void verify_fpid(
+    unsigned int * fpid, 
+    unsigned int * plain_fpid, 
+    unsigned int * dwt_eco
+)
 {
     /* Initialize reference data */
     init_ref_fpid(ref_fpid);
@@ -202,19 +218,19 @@ void verify_fpid(unsigned int *fpid, unsigned int *plain_fpid, unsigned int *dwt
     printf("---------------------\n");
     printf("Verfification \n\n");
 
-    /* Verify generated FPID */
-    bool pass = true;
+    /* Verify generated FPID, DWT */
+    bool pass_fpid = true;
+    bool pass_dwt = true;
 
     for (int i = 0; i < NUMFRAME; i++)
     {
         if (ref_fpid[i] != fpid[i])
         {
-            pass = false;
+            pass_fpid = false;
             printf("- Diffrent FPID: \n");
             printf("  - Index: %d\n", i);
             printf("  - Expected vs Real output: %u - %u \n", ref_fpid[i], fpid[i]);
             printf("\n");
-            // break;
         }
     }
 
@@ -222,7 +238,7 @@ void verify_fpid(unsigned int *fpid, unsigned int *plain_fpid, unsigned int *dwt
     {
         if (ref_dwt_eco[i] != dwt_eco[i])
         {
-            pass = false;
+            pass_dwt = false;
             printf("- Diffrent DWT: \n");
             printf("  - Index: %d\n", i);
             printf("  - Expected vs Real output: %u - %u \n", ref_dwt_eco[i], dwt_eco[i]);
@@ -230,11 +246,16 @@ void verify_fpid(unsigned int *fpid, unsigned int *plain_fpid, unsigned int *dwt
         }
     }
 
-    printf("- Result: %s", pass == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕");
+    printf("Result: \n");
+    printf(" - FPID : %s", pass_fpid == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕\n");
+    printf(" - DWT  : %s", pass_dwt == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕\n");
     printf("\n");
 }
 
-int run_all(FILE *ifp, FILE *ofp)
+int run_all(
+    FILE * ifp, 
+    FILE * ofp
+)
 {
     WAVEHEADER wave_header;
     short int wave16[NUMWAVE];
