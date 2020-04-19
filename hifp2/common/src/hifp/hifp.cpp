@@ -14,7 +14,9 @@ const int NUMFRAME = NUM_FRAME;
 unsigned int ref_fpid[NUMFRAME];
 unsigned int ref_dwt_eco[NUMDWTECO];
 
-int dwt1(short int *wave16)
+int dwt1(
+   short int * wave16
+)
 {
     int dwt_eco1;
     int dwt_tmp[4];
@@ -36,8 +38,8 @@ int dwt1(short int *wave16)
 }
 
 int readwav8(
-    FILE * fp, 
-    short int * wave16, 
+    FILE *             fp, 
+    short int *        wave16, 
     unsigned short int numch
 )
 {
@@ -71,7 +73,9 @@ err:
     return -1;
 }
 
-WAVEHEADER read_wave_header(FILE *ifp)
+WAVEHEADER read_wave_header(
+    FILE * ifp
+)
 {
     size_t rsz;
     WAVEHEADER wave_header;
@@ -99,7 +103,11 @@ err:
     return wave_header;
 }
 
-int read_wav_data(FILE *ifp, short int *wav_data, WAVEHEADER wave_header)
+int read_wav_data(
+    FILE *      ifp, 
+    short int * wav_data, 
+    WAVEHEADER  wave_header
+)
 {
     int r;
 
@@ -148,8 +156,8 @@ err:
 }
 
 int save_fp_to_disk(
-    FILE *ofp, 
-    unsigned int *fpid
+    FILE *         ofp, 
+    unsigned int * fpid
 )
 {
     size_t wsz;

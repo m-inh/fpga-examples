@@ -29,6 +29,7 @@ using namespace aocl_utils;
 using namespace hifp;
 using namespace my_utils;
 
+
 // OpenCL runtime configuration
 string binary_file = "hifp.aocx";
 cl_platform_id platform = NULL;
@@ -44,6 +45,7 @@ cl_mem output_buf_1 = NULL;
 cl_mem output_buf_2 = NULL;
 cl_mem output_buf_3 = NULL;
 
+
 // Problem data
 const char *IDIR = I_DIR;
 const char *ODIR = "./distorted-fp";
@@ -52,6 +54,7 @@ const int NUMWAVE = NUM_WAVE;
 const int NUMDWTECO = NUM_DWT_ECO;
 const int NUMFRAME = NUM_FRAME;
 
+
 // Function prototypes
 void init_opencl();
 int init_problem();
@@ -59,7 +62,11 @@ void run();
 void cleanup();
 
 
-int main(int argc, char **argv)
+
+int main(
+    int     argc, 
+    char ** argv
+)
 {
     Options options(argc, argv);
 
@@ -75,6 +82,8 @@ int main(int argc, char **argv)
 
     return 0;
 }
+
+
 
 // Initializes the OpenCL objects
 void init_opencl()
@@ -157,17 +166,6 @@ void init_opencl()
     const char *kernel_name = "hifp2";
     kernel = clCreateKernel(program, kernel_name, &status);
     checkError(status, "Failed to create kernel");
-
-    // Input buffers.
-    // input_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, NUMWAVE * sizeof(short int), NULL, &status);
-    // checkError(status, "Failed to create buffer for input");
-
-    // Output buffer.
-    // output_buf_1 = clCreateBuffer(context, CL_MEM_WRITE_ONLY, NUMFRAME * sizeof(unsigned int), NULL, &status);
-    // checkError(status, "Failed to create buffer for output 1");
-
-    // output_buf_2 = clCreateBuffer(context, CL_MEM_WRITE_ONLY, NUMFRAME * sizeof(unsigned int), NULL, &status);
-    // checkError(status, "Failed to create buffer for output 2");
 }
 
 
@@ -178,7 +176,7 @@ char ofpath[256];
 FILE *ifp = NULL;
 FILE *ofp = NULL;
 
-short int wave16[NUMWAVE];
+short int    wave16[NUMWAVE];
 unsigned int fpid[NUMFRAME];
 unsigned int plain_fpid[NUMDWTECO];
 unsigned int dwt[NUMDWTECO];
@@ -228,6 +226,8 @@ err:
     closedir(dir);
     return -1;
 }
+
+
 
 void run()
 {
@@ -344,18 +344,14 @@ void run()
         clReleaseEvent(finish_event[2]);
     }
 
-    // printf("\nplain_fpid:");
-    // print_array(plain_fpid, NUMDWTECO);
-
-    // printf("\ndwt:");
-    // print_array(dwt, NUMDWTECO);
-
     /* Verify result */
     verify_fpid(fpid, plain_fpid, dwt);
 
     /* Save FPID to disk */
     save_fp_to_disk(ofp, fpid);
 }
+
+
 
 // Free the resources allocated during initialization
 void cleanup()
