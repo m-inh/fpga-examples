@@ -3,13 +3,13 @@
 namespace hifp
 {
 
-const int _PRINT_FPID = PRINT_FPID;
+const int _PRINT_FPID       = PRINT_FPID;
 const int _PRINT_PLAIN_FPID = PRINT_PLAIN_FPID;
-const int _PRINT_DWT = PRINT_DWT;
+const int _PRINT_DWT        = PRINT_DWT;
 
-const int NUMWAVE = NUM_WAVE;
+const int NUMWAVE   = NUM_WAVE;
 const int NUMDWTECO = NUM_DWT_ECO;
-const int NUMFRAME = NUM_FRAME;
+const int NUMFRAME  = NUM_FRAME;
 
 unsigned int ref_fpid[NUMFRAME];
 unsigned int ref_dwt_eco[NUMDWTECO];
@@ -189,6 +189,28 @@ void verify_fpid(
     printf("- Number of bits per FPIDs (NUMDWTECO)               : %d \n", NUMDWTECO);
     printf("- Number of frames of generated FPID data (NUMFRAME) : %d \n", NUMFRAME);
 
+    /* Print generated DWT */
+    if (_PRINT_DWT == 1) {
+        printf("\n\n");
+        printf("- Generated DWT:\n");
+
+        for (int i = 0; i < NUMDWTECO; i++)
+        {
+            printf("%u ", dwt_eco[i]);
+        }
+    }
+
+    /* Print generated plain FPID */
+    if (_PRINT_PLAIN_FPID == 1) {
+        printf("\n\n");
+        printf("- Generated plain FPID:\n");
+
+        for (int i = 0; i < NUMDWTECO; i++)
+        {
+            printf("%u ", plain_fpid[i]);
+        }
+    }
+
     /* Print generated FPID */
     if (_PRINT_FPID == 1) {
         printf("\n");
@@ -200,27 +222,6 @@ void verify_fpid(
         }
     }
 
-    /* Print generated FPID */
-    if (_PRINT_PLAIN_FPID == 1) {
-        printf("\n\n");
-        printf("- Generated plain FPID:\n");
-
-        for (int i = 0; i < NUMDWTECO; i++)
-        {
-            printf("%u ", plain_fpid[i]);
-        }
-    }
-
-    /* Print generated DWT */
-    if (_PRINT_DWT == 1) {
-        printf("\n\n");
-        printf("- Generated DWT:\n");
-
-        for (int i = 0; i < NUMDWTECO; i++)
-        {
-            printf("%u ", dwt_eco[i]);
-        }
-    }
 
     printf("\n\n");
     printf("---------------------\n");
@@ -255,9 +256,9 @@ void verify_fpid(
     }
 
     printf("Result: \n");
-    printf(" - FPID : %s", pass_fpid == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕\n");
-    printf(" - DWT  : %s", pass_dwt == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕\n");
-    printf("\n");
+    printf(" - DWT  : %s", pass_dwt == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕"); printf("\n");
+    printf(" - FPID : %s", pass_fpid == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕");
+    printf("\n\n");
 }
 
 int run_all(

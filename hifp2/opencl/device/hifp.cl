@@ -8,29 +8,30 @@ __kernel void hifp2(
     __global unsigned int *     fpid,
     __global unsigned int *     plain_fpid,
     __global unsigned int *     dwt
-) 
+)
 {
     int g_id = get_global_id(0);
 
     int dwt_offset = g_id * 32;
-    int dwt_index = 0;
+    int dwt_index  = 0;
 
     int dwt_tmp[4];
 
     int wave_offset = g_id * 1024;
-    int wave_index = 0;
+    int wave_index  = 0;
     int i;
+
 
     /* 3-stages HAAR wavelet transform */
     for (i=0; i<32; i++) {
-        dwt_index = dwt_offset + i;
+        dwt_index  = dwt_offset + i;
         wave_index = wave_offset + (i * 32);
 
         /* 1st round */
-        dwt_tmp[0] = (wave16[wave_index] + wave16[wave_index + 1]) / 2;
+        dwt_tmp[0] = (wave16[wave_index]     + wave16[wave_index + 1]) / 2;
         dwt_tmp[1] = (wave16[wave_index + 2] + wave16[wave_index + 3]) / 2;
         dwt_tmp[2] = (wave16[wave_index + 4] + wave16[wave_index + 5]) / 2;
-        dwt_tmp[3] = (wave16[wave_index + 6] + wave16[wave_index+ 7]) / 2;
+        dwt_tmp[3] = (wave16[wave_index + 6] + wave16[wave_index + 7]) / 2;
 
         /* 2nd round */
         dwt_tmp[0] = (dwt_tmp[0] + dwt_tmp[1]) / 2;
@@ -42,7 +43,8 @@ __kernel void hifp2(
         dwt[dwt_index] = dwt_tmp[0];
     }
 
-    barrier(CLK_GLOBAL_MEM_FENCE);
+    // barrier(CLK_LOCAL_MEM_FENCE);
+
 
     unsigned int local_orientations[32];
 
@@ -61,12 +63,16 @@ __kernel void hifp2(
         }
     }
 
+    // barrier(CLK_LOCAL_MEM_FENCE);
+
+
     for (i=0; i<32; i++) {
         dwt_index = dwt_offset + i;
         plain_fpid[dwt_index] = local_orientations[i];
     }
 
-    barrier(CLK_GLOBAL_MEM_FENCE);
+    // barrier(CLK_LOCAL_MEM_FENCE);
+
 
     /* Compress plain FPID */
     unsigned int temp_fpid = 0;
