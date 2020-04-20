@@ -79,7 +79,7 @@ __kernel void generate_fpid(
         plain_fpid[dwteco_index] = local_orientations[i];
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    // barrier(CLK_LOCAL_MEM_FENCE);
 
 
     /* Compress plain FPID */

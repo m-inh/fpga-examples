@@ -167,7 +167,6 @@ void init_opencl()
     checkError(status, "Failed to create command queue_2");
 
     // Kernel.
-    // const char *kernel_name = "dwt";
     kernel[0] = clCreateKernel(program, "dwt", &status);
     kernel[1] = clCreateKernel(program, "generate_fpid", &status);
     checkError(status, "Failed to create kernel");
