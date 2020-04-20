@@ -37,13 +37,14 @@ unsigned num_devices = 0;
 cl_device_id device = NULL;
 cl_context context = NULL;
 cl_command_queue queue = NULL;
+cl_command_queue queue_2 = NULL;
 cl_program program = NULL;
-cl_kernel kernel = NULL;
+cl_kernel kernel[2];
 
-cl_mem input_buf = NULL;
-cl_mem output_buf_1 = NULL;
-cl_mem output_buf_2 = NULL;
-cl_mem output_buf_3 = NULL;
+cl_mem wave16_buf = NULL;
+cl_mem fpid_buf = NULL;
+cl_mem plain_fpid_buf = NULL;
+cl_mem dwteco_buf = NULL;
 
 
 // Problem data
@@ -70,9 +71,9 @@ int main(
 {
     Options options(argc, argv);
 
-    if (options.has("kernel"))
+    if (options.has("kernel_bin"))
     {
-        binary_file = options.get<string>("kernel");
+        binary_file = options.get<string>("kernel_bin");
     }
 
     init_opencl();
@@ -162,9 +163,13 @@ void init_opencl()
     queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
     checkError(status, "Failed to create command queue");
 
+    queue_2 = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
+    checkError(status, "Failed to create command queue_2");
+
     // Kernel.
-    const char *kernel_name = "hifp2";
-    kernel = clCreateKernel(program, kernel_name, &status);
+    // const char *kernel_name = "dwt";
+    kernel[0] = clCreateKernel(program, "dwt", &status);
+    kernel[1] = clCreateKernel(program, "generate_fpid", &status);
     checkError(status, "Failed to create kernel");
 }
 
@@ -231,117 +236,205 @@ err:
 
 void run()
 {
-    const double start_time = getCurrentTimestamp();
     cl_int status;
-    cl_event kernel_event;
-    cl_event finish_event[3];
 
     /* Create buffer */
-    // Input buffers.
-    input_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, NUMWAVE * sizeof(short int), NULL, &status);
+    wave16_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, NUMWAVE * sizeof(short int), NULL, &status);
     checkError(status, "Failed to create buffer for input");
 
-    // Output buffer.
-    output_buf_1 = clCreateBuffer(context, CL_MEM_WRITE_ONLY, NUMFRAME * sizeof(unsigned int), NULL, &status);
+    fpid_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMFRAME * sizeof(unsigned int), NULL, &status);
     checkError(status, "Failed to create buffer for output 1 - fpid");
 
-    output_buf_2 = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMDWTECO * sizeof(unsigned int), NULL, &status);
+    plain_fpid_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMDWTECO * sizeof(unsigned int), NULL, &status);
     checkError(status, "Failed to create buffer for output 2 - plain_fpid");
 
-    output_buf_3 = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMDWTECO * sizeof(unsigned int), NULL, &status);
+    dwteco_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMDWTECO * sizeof(unsigned int), NULL, &status);
     checkError(status, "Failed to create buffer for output 3 - dwt");
 
-
-    // Transfer inputs to each device. Each of the host buffers supplied to
-    // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
-    // for the host-to-device transfer.
-    cl_event write_event[1];
-
-    status = clEnqueueWriteBuffer(queue, input_buf, CL_FALSE, 0, NUMWAVE * sizeof(short int), wave16, 0, NULL, &write_event[0]);
-    checkError(status, "Failed to transfer input wav");
-
-    // Set kernel arguments.
-    unsigned argi = 0;
-
-    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_buf);
-    checkError(status, "Failed to set argument %d", argi - 1);
-
-    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf_1);
-    checkError(status, "Failed to set argument %d", argi - 1);
-
-    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf_2);
-    checkError(status, "Failed to set argument %d", argi - 1);
-
-    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf_3);
-    checkError(status, "Failed to set argument %d", argi - 1);
-
-    /* 
-    Enqueue kernel.
-    Use a global work size corresponding to the number of elements to add
-    for this device.
-    
-    We don't specify a local work size and let the runtime choose
-    (it'll choose to use one work-group with the same size as the global
-    work-size).
-    
-    Events are used to ensure that the kernel is not launched until
-    the writes to the input buffers have completed. 
-    */
-    const cl_uint work_dim = 1;
-    const cl_uint num_events_in_wait_list = 1;
-    const size_t global_work_offset = 0;
-    const size_t global_work_size = NUMFRAME;
-    const size_t local_work_size = 0;
-
-    printf("\n");
-    printf("Launching for device %u: \n", device);
-    printf("- work_dim: %u \n", work_dim);
-    printf("- num_events_in_wait_list: %u \n", num_events_in_wait_list);
-    printf("- global_work_offset: %lu \n", global_work_offset);
-    printf("- global_work_size: %lu \n", global_work_size);
-    printf("- local_work_size: %lu \n", local_work_size);
-
-    status = clEnqueueNDRangeKernel(queue,
-                                    kernel,
-                                    work_dim,
-                                    global_work_offset == 0 ? NULL : &global_work_offset,
-                                    global_work_size == 0 ? NULL : &global_work_size,
-                                    local_work_size == 0 ? NULL : &local_work_size,
-                                    num_events_in_wait_list,
-                                    write_event,
-                                    &kernel_event);
-
-    checkError(status, "Failed to launch kernel");
-
-    // Read the result. This the final operation.
-    status = clEnqueueReadBuffer(queue, output_buf_1, CL_FALSE, 0, NUMFRAME * sizeof(unsigned int), fpid, 1, &kernel_event, &finish_event[0]);
-    status = clEnqueueReadBuffer(queue, output_buf_2, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), plain_fpid, 1, &kernel_event, &finish_event[1]);
-    status = clEnqueueReadBuffer(queue, output_buf_3, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), dwt, 1, &kernel_event, &finish_event[2]);
-
-    // Release local events.
-    clReleaseEvent(write_event[0]);
-
-    // Wait for all devices to finish.
-    clWaitForEvents(3, finish_event);
-
-    const double end_time = getCurrentTimestamp();
-
-    // Wall-clock time taken.
-    printf("\n");
-    printf("Time: %0.3f ms \n", (end_time - start_time) * 1e3);
-
-    // Get kernel times using the OpenCL event profiling API.
     {
-        cl_ulong time_ns = getStartEndTime(kernel_event);
-        printf("Kernel time (%d): %0.3f ms \n", device, double(time_ns) * 1e-6);
+        const double start_time = getCurrentTimestamp();
+        cl_event kernel_event;
+        cl_event finish_event[3];
+        cl_event write_event[1];
+
+        status = clEnqueueWriteBuffer(queue, wave16_buf, CL_FALSE, 0, NUMWAVE * sizeof(short int), wave16, 0, NULL, &write_event[0]);
+        checkError(status, "Failed to transfer input wav");
+
+        // Set kernel arguments.
+        {
+            unsigned argi = 0;
+
+            status = clSetKernelArg(kernel[0], argi++, sizeof(cl_mem), &wave16_buf);
+            checkError(status, "Failed to set argument %d", argi - 1);
+
+            status = clSetKernelArg(kernel[0], argi++, sizeof(cl_mem), &fpid_buf);
+            checkError(status, "Failed to set argument %d", argi - 1);
+
+            status = clSetKernelArg(kernel[0], argi++, sizeof(cl_mem), &plain_fpid_buf);
+            checkError(status, "Failed to set argument %d", argi - 1);
+
+            status = clSetKernelArg(kernel[0], argi++, sizeof(cl_mem), &dwteco_buf);
+            checkError(status, "Failed to set argument %d", argi - 1);
+        }
+
+        /*
+        Enqueue kernel.
+        Use a global work size corresponding to the number of elements to add
+        for this device.
+        
+        We don't specify a local work size and let the runtime choose
+        (it'll choose to use one work-group with the same size as the global
+        work-size).
+        
+        Events are used to ensure that the kernel is not launched until
+        the writes to the input buffers have completed. 
+        */
+        const cl_uint work_dim = 1;
+        const cl_uint num_events_in_wait_list = 1;
+        const size_t global_work_offset = 0;
+        const size_t global_work_size = NUMFRAME;
+        const size_t local_work_size = 0;
+
+        printf("\n");
+        printf("Launching for device %u: \n", device);
+        printf("- work_dim: %u \n", work_dim);
+        printf("- num_events_in_wait_list: %u \n", num_events_in_wait_list);
+        printf("- global_work_offset: %lu \n", global_work_offset);
+        printf("- global_work_size: %lu \n", global_work_size);
+        printf("- local_work_size: %lu \n", local_work_size);
+
+        status = clEnqueueNDRangeKernel(queue,
+                                        kernel[0],
+                                        work_dim,
+                                        global_work_offset == 0 ? NULL : &global_work_offset,
+                                        global_work_size == 0 ? NULL : &global_work_size,
+                                        local_work_size == 0 ? NULL : &local_work_size,
+                                        num_events_in_wait_list,
+                                        write_event,
+                                        &kernel_event);
+
+        checkError(status, "Failed to launch kernel");
+
+        // Read the result. This the final operation.
+        status = clEnqueueReadBuffer(queue, fpid_buf, CL_FALSE, 0, NUMFRAME * sizeof(unsigned int), fpid, 1, &kernel_event, &finish_event[0]);
+        status = clEnqueueReadBuffer(queue, plain_fpid_buf, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), plain_fpid, 1, &kernel_event, &finish_event[1]);
+        status = clEnqueueReadBuffer(queue, dwteco_buf, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), dwt, 1, &kernel_event, &finish_event[2]);
+
+        // Release local events.
+        clReleaseEvent(write_event[0]);
+
+        // Wait for all devices to finish.
+        clWaitForEvents(3, finish_event);
+
+        const double end_time = getCurrentTimestamp();
+
+        // Wall-clock time taken.
+        printf("\n");
+        printf("Time: %0.3f ms \n", (end_time - start_time) * 1e3);
+
+        // Get kernel times using the OpenCL event profiling API.
+        {
+            cl_ulong time_ns = getStartEndTime(kernel_event);
+            printf("Kernel time (%d): %0.3f ms \n", device, double(time_ns) * 1e-6);
+        }
+
+        // Release all events.
+        {
+            clReleaseEvent(kernel_event);
+            clReleaseEvent(finish_event[0]);
+            clReleaseEvent(finish_event[1]);
+            clReleaseEvent(finish_event[2]);
+        }
     }
 
-    // Release all events.
     {
-        clReleaseEvent(kernel_event);
-        clReleaseEvent(finish_event[0]);
-        clReleaseEvent(finish_event[1]);
-        clReleaseEvent(finish_event[2]);
+        const double start_time = getCurrentTimestamp();
+        cl_event kernel_event;
+        cl_event finish_event[2];
+        cl_event write_event[1];
+
+        status = clEnqueueWriteBuffer(queue_2, dwteco_buf, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), dwt, 0, NULL, &write_event[0]);
+        checkError(status, "Failed to transfer input dwteco");
+
+        {
+            unsigned argi = 0;
+
+            status = clSetKernelArg(kernel[1], argi++, sizeof(cl_mem), &dwteco_buf);
+            checkError(status, "Failed to set argument %d", argi - 1);
+
+            status = clSetKernelArg(kernel[1], argi++, sizeof(cl_mem), &fpid_buf);
+            checkError(status, "Failed to set argument %d", argi - 1);
+
+            status = clSetKernelArg(kernel[1], argi++, sizeof(cl_mem), &plain_fpid_buf);
+            checkError(status, "Failed to set argument %d", argi - 1);
+        }
+
+        /*
+        Enqueue kernel.
+        Use a global work size corresponding to the number of elements to add
+        for this device.
+        
+        We don't specify a local work size and let the runtime choose
+        (it'll choose to use one work-group with the same size as the global
+        work-size).
+        
+        Events are used to ensure that the kernel is not launched until
+        the writes to the input buffers have completed. 
+        */
+        const cl_uint work_dim = 1;
+        const cl_uint num_events_in_wait_list = 1;
+        const size_t global_work_offset = 0;
+        const size_t global_work_size = NUMFRAME;
+        const size_t local_work_size = 0;
+
+        printf("\n");
+        printf("Launching for device %u: \n", device);
+        printf("- work_dim: %u \n", work_dim);
+        printf("- num_events_in_wait_list: %u \n", num_events_in_wait_list);
+        printf("- global_work_offset: %lu \n", global_work_offset);
+        printf("- global_work_size: %lu \n", global_work_size);
+        printf("- local_work_size: %lu \n", local_work_size);
+
+        status = clEnqueueNDRangeKernel(queue_2,
+                                        kernel[1],
+                                        work_dim,
+                                        global_work_offset == 0 ? NULL : &global_work_offset,
+                                        global_work_size == 0 ? NULL : &global_work_size,
+                                        local_work_size == 0 ? NULL : &local_work_size,
+                                        num_events_in_wait_list,
+                                        write_event,
+                                        &kernel_event);
+
+        checkError(status, "Failed to launch kernel");
+
+        // Read the result. This the final operation.
+        status = clEnqueueReadBuffer(queue_2, fpid_buf, CL_FALSE, 0, NUMFRAME * sizeof(unsigned int), fpid, 1, &kernel_event, &finish_event[0]);
+        status = clEnqueueReadBuffer(queue_2, plain_fpid_buf, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), plain_fpid, 1, &kernel_event, &finish_event[1]);
+
+        // Release local events.
+        clReleaseEvent(write_event[0]);
+
+        // Wait for all devices to finish.
+        clWaitForEvents(2, finish_event);
+
+        const double end_time = getCurrentTimestamp();
+
+        // Wall-clock time taken.
+        printf("\n");
+        printf("Time: %0.3f ms \n", (end_time - start_time) * 1e3);
+
+        // Get kernel times using the OpenCL event profiling API.
+        {
+            cl_ulong time_ns = getStartEndTime(kernel_event);
+            printf("Kernel time (%d): %0.3f ms \n", device, double(time_ns) * 1e-6);
+        }
+
+        // Release all events.
+        {
+            clReleaseEvent(kernel_event);
+            clReleaseEvent(finish_event[0]);
+            clReleaseEvent(finish_event[1]);
+        }
     }
 
     /* Verify result */
@@ -356,9 +449,13 @@ void run()
 // Free the resources allocated during initialization
 void cleanup()
 {
-    if (kernel)
+    if (kernel[0])
     {
-        clReleaseKernel(kernel);
+        clReleaseKernel(kernel[0]);
+    }
+    if (kernel[1])
+    {
+        clReleaseKernel(kernel[1]);
     }
     if (queue)
     {
@@ -372,21 +469,21 @@ void cleanup()
     {
         clReleaseContext(context);
     }
-    if (input_buf)
+    if (wave16_buf)
     {
-        clReleaseMemObject(input_buf);
+        clReleaseMemObject(wave16_buf);
     }
-    if (output_buf_1)
+    if (fpid_buf)
     {
-        clReleaseMemObject(output_buf_1);
+        clReleaseMemObject(fpid_buf);
     }
-    if (output_buf_2)
+    if (plain_fpid_buf)
     {
-        clReleaseMemObject(output_buf_2);
+        clReleaseMemObject(plain_fpid_buf);
     }
-    if (output_buf_3)
+    if (dwteco_buf)
     {
-        clReleaseMemObject(output_buf_3);
+        clReleaseMemObject(dwteco_buf);
     }
 
     // Free problem data
