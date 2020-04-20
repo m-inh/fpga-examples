@@ -43,7 +43,7 @@ cl_kernel kernel[2];
 
 cl_mem wave16_buf = NULL;
 cl_mem fpid_buf = NULL;
-cl_mem plain_fpid_buf = NULL;
+// cl_mem plain_fpid_buf = NULL;
 cl_mem dwteco_buf = NULL;
 
 
@@ -182,7 +182,7 @@ FILE *ofp = NULL;
 
 short int    wave16[NUMWAVE];
 unsigned int fpid[NUMFRAME];
-unsigned int plain_fpid[NUMDWTECO];
+// unsigned int plain_fpid[NUMDWTECO];
 unsigned int dwt[NUMDWTECO];
 
 /* Load problem data here */
@@ -217,7 +217,7 @@ int init_problem()
     /* initialize all array elements to zero */
     memset(wave16, 0, sizeof(wave16));
     memset(fpid, 0, sizeof(fpid));
-    memset(plain_fpid, 0, sizeof(plain_fpid));
+    // memset(plain_fpid, 0, sizeof(plain_fpid));
     memset(dwt, 0, sizeof(dwt));
 
     /* Load data */
@@ -244,16 +244,13 @@ void run()
     fpid_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMFRAME * sizeof(unsigned int), NULL, &status);
     checkError(status, "Failed to create buffer for output 1 - fpid");
 
-    plain_fpid_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMDWTECO * sizeof(unsigned int), NULL, &status);
-    checkError(status, "Failed to create buffer for output 2 - plain_fpid");
-
     dwteco_buf = clCreateBuffer(context, CL_MEM_READ_WRITE, NUMDWTECO * sizeof(unsigned int), NULL, &status);
     checkError(status, "Failed to create buffer for output 3 - dwt");
 
     {
         const double start_time = getCurrentTimestamp();
         cl_event kernel_event;
-        cl_event finish_event[3];
+        cl_event finish_event[1];
         cl_event write_event[1];
 
         status = clEnqueueWriteBuffer(queue, wave16_buf, CL_FALSE, 0, NUMWAVE * sizeof(short int), wave16, 0, NULL, &write_event[0]);
@@ -264,12 +261,6 @@ void run()
             unsigned argi = 0;
 
             status = clSetKernelArg(kernel[0], argi++, sizeof(cl_mem), &wave16_buf);
-            checkError(status, "Failed to set argument %d", argi - 1);
-
-            status = clSetKernelArg(kernel[0], argi++, sizeof(cl_mem), &fpid_buf);
-            checkError(status, "Failed to set argument %d", argi - 1);
-
-            status = clSetKernelArg(kernel[0], argi++, sizeof(cl_mem), &plain_fpid_buf);
             checkError(status, "Failed to set argument %d", argi - 1);
 
             status = clSetKernelArg(kernel[0], argi++, sizeof(cl_mem), &dwteco_buf);
@@ -291,7 +282,7 @@ void run()
         const cl_uint work_dim = 1;
         const cl_uint num_events_in_wait_list = 1;
         const size_t global_work_offset = 0;
-        const size_t global_work_size = NUMFRAME;
+        const size_t global_work_size = NUMDWTECO;
         const size_t local_work_size = 0;
 
         printf("\n");
@@ -315,15 +306,13 @@ void run()
         checkError(status, "Failed to launch kernel");
 
         // Read the result. This the final operation.
-        status = clEnqueueReadBuffer(queue, fpid_buf, CL_FALSE, 0, NUMFRAME * sizeof(unsigned int), fpid, 1, &kernel_event, &finish_event[0]);
-        status = clEnqueueReadBuffer(queue, plain_fpid_buf, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), plain_fpid, 1, &kernel_event, &finish_event[1]);
-        status = clEnqueueReadBuffer(queue, dwteco_buf, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), dwt, 1, &kernel_event, &finish_event[2]);
+        status = clEnqueueReadBuffer(queue, dwteco_buf, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), dwt, 1, &kernel_event, &finish_event[0]);
 
         // Release local events.
         clReleaseEvent(write_event[0]);
 
         // Wait for all devices to finish.
-        clWaitForEvents(3, finish_event);
+        clWaitForEvents(1, finish_event);
 
         const double end_time = getCurrentTimestamp();
 
@@ -341,8 +330,6 @@ void run()
         {
             clReleaseEvent(kernel_event);
             clReleaseEvent(finish_event[0]);
-            clReleaseEvent(finish_event[1]);
-            clReleaseEvent(finish_event[2]);
         }
     }
 
@@ -362,9 +349,6 @@ void run()
             checkError(status, "Failed to set argument %d", argi - 1);
 
             status = clSetKernelArg(kernel[1], argi++, sizeof(cl_mem), &fpid_buf);
-            checkError(status, "Failed to set argument %d", argi - 1);
-
-            status = clSetKernelArg(kernel[1], argi++, sizeof(cl_mem), &plain_fpid_buf);
             checkError(status, "Failed to set argument %d", argi - 1);
         }
 
@@ -408,13 +392,12 @@ void run()
 
         // Read the result. This the final operation.
         status = clEnqueueReadBuffer(queue_2, fpid_buf, CL_FALSE, 0, NUMFRAME * sizeof(unsigned int), fpid, 1, &kernel_event, &finish_event[0]);
-        status = clEnqueueReadBuffer(queue_2, plain_fpid_buf, CL_FALSE, 0, NUMDWTECO * sizeof(unsigned int), plain_fpid, 1, &kernel_event, &finish_event[1]);
 
         // Release local events.
         clReleaseEvent(write_event[0]);
 
         // Wait for all devices to finish.
-        clWaitForEvents(2, finish_event);
+        clWaitForEvents(1, finish_event);
 
         const double end_time = getCurrentTimestamp();
 
@@ -432,12 +415,11 @@ void run()
         {
             clReleaseEvent(kernel_event);
             clReleaseEvent(finish_event[0]);
-            clReleaseEvent(finish_event[1]);
         }
     }
 
     /* Verify result */
-    verify_fpid(fpid, plain_fpid, dwt);
+    verify_fpid(fpid, NULL, dwt);
 
     /* Save FPID to disk */
     save_fp_to_disk(ofp, fpid);
@@ -476,10 +458,10 @@ void cleanup()
     {
         clReleaseMemObject(fpid_buf);
     }
-    if (plain_fpid_buf)
-    {
-        clReleaseMemObject(plain_fpid_buf);
-    }
+    // if (plain_fpid_buf)
+    // {
+    //     clReleaseMemObject(plain_fpid_buf);
+    // }
     if (dwteco_buf)
     {
         clReleaseMemObject(dwteco_buf);

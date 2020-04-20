@@ -201,7 +201,7 @@ void verify_fpid(
     }
 
     /* Print generated plain FPID */
-    if (_PRINT_PLAIN_FPID == 1) {
+    if (_PRINT_PLAIN_FPID == 1 && plain_fpid != NULL) {
         printf("\n\n");
         printf("- Generated plain FPID:\n");
 
