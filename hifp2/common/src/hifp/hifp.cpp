@@ -243,20 +243,24 @@ void verify_fpid(
         }
     }
 
-    for (int i = 0; i < NUMDWTECO; i++)
-    {
-        if (ref_dwt_eco[i] != dwt_eco[i])
+    if (dwt_eco != NULL) {
+        for (int i = 0; i < NUMDWTECO; i++)
         {
-            pass_dwt = false;
-            printf("- Diffrent DWT: \n");
-            printf("  - Index: %d\n", i);
-            printf("  - Expected vs Real output: %u - %u \n", ref_dwt_eco[i], dwt_eco[i]);
-            printf("\n");
+            if (ref_dwt_eco[i] != dwt_eco[i])
+            {
+                pass_dwt = false;
+                printf("- Diffrent DWT: \n");
+                printf("  - Index: %d\n", i);
+                printf("  - Expected vs Real output: %u - %u \n", ref_dwt_eco[i], dwt_eco[i]);
+                printf("\n");
+            }
         }
     }
 
     printf("Result: \n");
-    printf(" - DWT  : %s", pass_dwt == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕"); printf("\n");
+    if (dwt_eco != NULL) {
+        printf(" - DWT  : %s", pass_dwt == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕"); printf("\n");
+    }
     printf(" - FPID : %s", pass_fpid == true ? "PASS! 🎉🎉🎉" : "FAILED! 🤕");
     printf("\n\n");
 }
