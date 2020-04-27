@@ -1,9 +1,10 @@
 #define MAX_SOURCE_SIZE (0x100000)
+#define MAX_SONGS 2000
 
 #ifdef __APPLE__
-#define I_DIR "../distorted-wav"
+#define I_DIR "../wav"
 #else
-#define I_DIR "../../distorted-wav"
+#define I_DIR "../../wav"
 #endif
 
 #include <stdio.h>
@@ -13,6 +14,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
+#include <vector>
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -23,12 +25,16 @@
 #include "AOCLUtils/aocl_utils.h"
 #include "hifp/hifp.h"
 #include "utils/utils.h"
+#include "utils/csv.h"
 
 using namespace std;
 using namespace aocl_utils;
 using namespace hifp;
 using namespace my_utils;
 
+const int NUMWAVE = NUM_WAVE;
+const int NUMDWTECO = NUM_DWT_ECO;
+const int NUMFRAME = NUM_FRAME;
 
 // OpenCL runtime configuration
 string binary_file = "hifp.aocx";
@@ -46,14 +52,17 @@ cl_mem fpid_buf = NULL;
 // cl_mem plain_fpid_buf = NULL;
 cl_mem dwteco_buf = NULL;
 
+const cl_uint work_dim[2] = {1, 1};
+const cl_uint num_events_in_wait_list[2] = {1, 1};
+const size_t global_work_offset[2] = {0, 0};
+const size_t global_work_size[2] = {NUMDWTECO, NUMFRAME};
+const size_t local_work_size[2] = {0, 0};
+
 
 // Problem data
 const char *IDIR = I_DIR;
-const char *ODIR = "./distorted-fp";
-
-const int NUMWAVE = NUM_WAVE;
-const int NUMDWTECO = NUM_DWT_ECO;
-const int NUMFRAME = NUM_FRAME;
+const char *ODIR = "./fpid";
+const char *CSVDIR = "./report";
 
 short int    wave16[NUMWAVE];
 unsigned int fpid[NUMFRAME];
@@ -61,11 +70,18 @@ unsigned int fpid[NUMFRAME];
 unsigned int dwt[NUMDWTECO];
 
 
+int song_id = 0;
+double total_time[MAX_SONGS];
+cl_ulong transfer_time[MAX_SONGS][2];
+cl_ulong kernel_time[MAX_SONGS][2];
+
 // Function prototypes
 void init_opencl();
 int init_problem(FILE *ifp, FILE *ofp);
 void run();
 void cleanup();
+void print_executed_time();
+void save_csv(string csvpath);
 
 
 
@@ -84,13 +100,15 @@ int main(int argc, char ** argv)
     struct dirent *ep;
     char ifpath[256];
     char ofpath[256];
+    char csvpath[256];
     FILE *ifp = NULL;
     FILE *ofp = NULL;
+    FILE *csvfp = NULL;
 
     dir = opendir(IDIR);
     ASSERT(dir != NULL);
 
-    while ((ep = readdir(dir)) != NULL)
+    while ((ep = readdir(dir)) != NULL && song_id < MAX_SONGS)
     {
         if (ep->d_type == DT_REG)
         {
@@ -111,10 +129,17 @@ int main(int argc, char ** argv)
             fclose(ofp);
             ifp = NULL;
             ofp = NULL;
+
+            song_id++;
         }
     }
+
+    print_executed_time();
     
     closedir(dir);
+
+    sprintf(csvpath, "%s/%u.csv", CSVDIR, (int) round(getCurrentTimestamp()));
+    save_csv(csvpath);
 
     cleanup();
 
@@ -210,6 +235,23 @@ void init_opencl()
     kernel[0] = clCreateKernel(program, "dwt", &status);
     kernel[1] = clCreateKernel(program, "generate_fpid", &status);
     checkError(status, "Failed to create kernel");
+
+    /* Print kernel's configuration */
+    printf("\n");
+    printf("Launching for device:      %d  \n", device);
+    printf("- DWT kernel:      \n");
+    printf("- work_dim:                %u  \n", work_dim[0]);
+    printf("- num_events_in_wait_list: %u  \n", num_events_in_wait_list[0]);
+    printf("- global_work_offset:      %lu \n", global_work_offset[0]);
+    printf("- global_work_size:        %lu \n", global_work_size[0]);
+    printf("- local_work_size:         %lu \n", local_work_size[0]);
+    
+    printf("- gen_fpid kernel:        \n");
+    printf("- work_dim:                %u  \n", work_dim[1]);
+    printf("- num_events_in_wait_list: %u  \n", num_events_in_wait_list[1]);
+    printf("- global_work_offset:      %lu \n", global_work_offset[1]);
+    printf("- global_work_size:        %lu \n", global_work_size[1]);
+    printf("- local_work_size:         %lu \n", local_work_size[1]);
 }
 
 
@@ -248,12 +290,6 @@ void run()
     cl_event read_event[1];
     cl_event kernel_event[2];
 
-    const cl_uint work_dim[2] = {1, 1};
-    const cl_uint num_events_in_wait_list[2] = {1, 1};
-    const size_t global_work_offset[2] = {0, 0};
-    const size_t global_work_size[2] = {NUMDWTECO, NUMFRAME};
-    const size_t local_work_size[2] = {0, 0};
-
 
     /* Create buffer */
     wave16_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, NUMWAVE * sizeof(short int), NULL, &status);
@@ -286,13 +322,7 @@ void run()
 
     /* Run kernel */
     /* kernel 0 */
-    printf("\n");
-    printf("Launching for device:      %d  \n", device);
-    printf("- work_dim:                %u  \n", work_dim[0]);
-    printf("- num_events_in_wait_list: %u  \n", num_events_in_wait_list[0]);
-    printf("- global_work_offset:      %lu \n", global_work_offset[0]);
-    printf("- global_work_size:        %lu \n", global_work_size[0]);
-    printf("- local_work_size:         %lu \n", local_work_size[0]);
+    
 
     status = clEnqueueNDRangeKernel(queue,
                                     kernel[0],
@@ -306,14 +336,6 @@ void run()
     checkError(status, "Failed to launch dwt kernel");
 
     /* kernel 1 */
-    printf("\n");
-    printf("Launching for device:      %d  \n", device);
-    printf("- work_dim:                %u  \n", work_dim[1]);
-    printf("- num_events_in_wait_list: %u  \n", num_events_in_wait_list[1]);
-    printf("- global_work_offset:      %lu \n", global_work_offset[1]);
-    printf("- global_work_size:        %lu \n", global_work_size[1]);
-    printf("- local_work_size:         %lu \n", local_work_size[1]);
-
     status = clEnqueueNDRangeKernel(queue,
                                     kernel[1],
                                     work_dim[1],
@@ -333,20 +355,14 @@ void run()
 
     // Print time taken.
     const double end_time = getCurrentTimestamp();
-    cl_ulong transfer_time[2];
-    cl_ulong kernel_time[2];
 
-    printf("\n");
-    printf("Wall-clock time:      %0.3f ms \n", (end_time - start_time) * 1e3);
+    total_time[song_id] = end_time - start_time;
+    transfer_time[song_id][0] = getStartEndTime(write_event[0]);
+    transfer_time[song_id][1] = getStartEndTime(read_event[0]);
+    kernel_time[song_id][0] = getStartEndTime(kernel_event[0]);
+    kernel_time[song_id][1] = getStartEndTime(kernel_event[1]);
 
-    transfer_time[0] = getStartEndTime(write_event[0]);
-    transfer_time[1] = getStartEndTime(read_event[0]);
-    kernel_time[0] = getStartEndTime(kernel_event[0]);
-    kernel_time[1] = getStartEndTime(kernel_event[1]);
-    printf("Transfer write time:  %0.3f ms \n", double(transfer_time[0]) * 1e-6);
-    printf("Transfer read time:   %0.3f ms \n", double(transfer_time[1]) * 1e-6);
-    printf("Kernel time dwt:      %0.3f ms \n", double(kernel_time[0]) * 1e-6);
-    printf("Kernel time gen_fpid: %0.3f ms \n", double(kernel_time[1]) * 1e-6);
+
 
 
     /* Release all events */
@@ -363,9 +379,32 @@ void run()
     // save_fp_to_disk(ofp, fpid);
 }
 
+void print_executed_time() 
+{
+    for (int i=0; i<song_id; i++) {
+        printf("\n");
+        printf("Total time:           %0.3f ms \n", total_time[i] * 1e3);
+        printf("Transfer write time:  %0.3f ms \n", transfer_time[i][0] * 1e-6);
+        printf("Transfer read time:   %0.3f ms \n", transfer_time[i][1] * 1e-6);
+        printf("Kernel time dwt:      %0.3f ms \n", kernel_time[i][0] * 1e-6);
+        printf("Kernel time gen_fpid: %0.3f ms \n", kernel_time[i][1] * 1e-6);   
+    }
+}
 
 
-// Free the resources allocated during initialization
+void save_csv(string csvpath)
+{
+    csv_data c_data;
+    c_data.header.push_back("okmen1");
+    c_data.header.push_back("okmen2");
+
+    int matrix[2][3] = {{1,2,3}, {2,4,6}};
+    printf("csvpath: %s", csvpath.c_str());
+    parse_csv_from_matrix(song_id, 3, (int *)matrix, &c_data);
+    write_csv_file(&c_data, csvpath);
+}
+
+
 void cleanup()
 {
     clReleaseKernel(kernel[0]);
@@ -376,11 +415,4 @@ void cleanup()
     clReleaseMemObject(wave16_buf);
     clReleaseMemObject(fpid_buf);
     clReleaseMemObject(dwteco_buf);
-
-    // Free problem data
-    // closedir(dir);
-    // fclose(ifp);
-    // fclose(ofp);
-    // ifp = NULL;
-    // ofp = NULL;
 }

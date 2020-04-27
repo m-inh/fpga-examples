@@ -1,8 +1,3 @@
-# You must configure ALTERAOCLSDKROOT to point the root directory of the Intel(R) FPGA SDK for OpenCL(TM)
-# software installation.
-# See http://www.altera.com/literature/hb/opencl-sdk/aocl_getting_started.pdf 
-# for more information on installing and configuring the Intel(R) FPGA SDK for OpenCL(TM).
-
 ifeq ($(VERBOSE),1)
 ECHO := 
 else
@@ -50,9 +45,9 @@ FRAMEWORKS :=
 all : $(TARGET_DIR)/$(TARGET)
 
 # Host executable target.
-$(TARGET_DIR)/$(TARGET) : Makefile $(SRCS) $(INCS) $(TARGET_DIR)
+$(TARGET_DIR)/$(TARGET) : Makefile $(SRCS) $(INCS) $(TARGET_DIR) $(FPID_DIR) $(REPORT_DIR) clean
 	$(ECHO)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -fPIC $(foreach D,$(INC_DIRS),-I$D) \
-		$(AOCL_COMPILE_CONFIG) $(SRCS) $(AOCL_LINK_CONFIG) \
+		$(SRCS) \
 		$(foreach D,$(LIB_DIRS),-L$D) \
 		$(foreach L,$(LIBS),-l$L) \
 		$(foreach L,$(FRAMEWORKS),-framework $L) \
@@ -60,7 +55,13 @@ $(TARGET_DIR)/$(TARGET) : Makefile $(SRCS) $(INCS) $(TARGET_DIR)
 
 $(TARGET_DIR) :
 	$(ECHO)mkdir $(TARGET_DIR)
-	
+
+$(FPID_DIR) :
+	$(ECHO)mkdir $(FPID_DIR)
+
+$(REPORT_DIR) :
+	$(ECHO)mkdir $(REPORT_DIR)
+
 # Standard make targets
 clean :
 	$(ECHO)rm -f $(TARGET_DIR)/$(TARGET)

@@ -5,11 +5,12 @@
 #include <errno.h>
 
 #include "hifp/hifp.h"
+#include "utils/csv.h"
 
 using namespace hifp;
 
-const char *IDIR = "../distorted-wav";
-const char *ODIR = "./distorted-fp";
+const char *IDIR = "../wav";
+const char *ODIR = "./fpid";
 
 /* Entry point */
 int main(int argc, char **argv)
