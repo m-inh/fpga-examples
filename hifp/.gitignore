@@ -1,0 +1,7 @@
+.DS_Store
+.vscode
+bin
+**/fpid
+**/report
+*.log
+log.txt

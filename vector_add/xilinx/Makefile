@@ -25,7 +25,7 @@ help::
 	$(ECHO) ""
 
 # Points to Utility Directory
-COMMON_REPO = ../
+COMMON_REPO = ./
 ABS_COMMON_REPO = $(shell readlink -f $(COMMON_REPO))
 
 TARGETS := hw
