@@ -1,0 +1,39 @@
+<EFI_SPEC>
+  <FUNCTION name="copyElement" module="copyElement_function">
+    <ATTRIBUTES>
+      <IS_STALL_FREE value="no"/>
+      <IS_FIXED_LATENCY value="no"/>
+      <EXPECTED_LATENCY value="50"/>
+      <CAPACITY value="1" />
+      <HAS_SIDE_EFFECTS value="yes"/>
+      <ALLOW_MERGING value="no"/>
+    </ATTRIBUTES>
+    <INTERFACE>
+      <AVALON port="clock" type="clock"/>
+      <AVALON port="resetn" type="resetn"/>
+
+      <AVALON port="m_valid_in" type="ivalid"/>
+      <AVALON port="m_ready_out" type="oready"/>
+      <AVALON port="m_valid_out" type="ovalid"/>
+      <AVALON port="m_ready_in" type="iready"/>
+
+      <MEM_INPUT port="m_input_dst" access="readwrite"/>
+      <MEM_INPUT port="m_input_src" access="readonly"/>
+      <INPUT port="m_input_global_id_0" width="32"/>
+      <INPUT port="m_input_local_id_3" width="32"/>
+      <INPUT port="m_input_global_size_0" width="32"/>
+      <INPUT port="m_workgroup_size" width="32"/>
+      <OUTPUT port="m_output_0" width="32"/>
+
+      <AVALON_MEM port="avm_local_bb1_ld_" width="512" burstwidth="5" optype="read" buffer_location="" />
+      <AVALON_MEM port="avm_local_bb1_st_" width="512" burstwidth="5" optype="write" buffer_location="" />
+
+    </INTERFACE>
+    <C_MODEL>
+      <FILE name="copyElement.cl" />
+    </C_MODEL>
+    <REQUIREMENTS>
+      <FILE name="copyElement.v" />
+    </REQUIREMENTS>
+  </FUNCTION>
+</EFI_SPEC>
